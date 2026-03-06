@@ -1,0 +1,221 @@
+# ============================================================
+# Go-Nomads Web CI/CD Pipeline
+# Gitee Go + 华为云 SWR + 阿里云服务器部署
+# ============================================================
+#
+# 架构说明:
+#   - 镜像仓库: 华为云 SWR
+#   - 生产服务器: 阿里云 ECS
+#   - 流程: 构建 → 推送到华为云 SWR → 部署到阿里云服务器
+#
+# 环境变量配置（需要在 Gitee 仓库 -> 设置 -> 流水线 -> 变量中配置）:
+#
+# === 华为云 SWR (镜像仓库) ===
+#   - SWR_AK: 华为云 Access Key (加密)
+#   - SWR_SK: 华为云 Secret Key (加密)
+#   - SWR_REGION: 华为云区域 (如: cn-north-4)
+#   - SWR_ORGANIZATION: SWR 组织名称 (如: go-nomads)
+#   - SWR_LOGIN_SERVER: SWR 登录服务器 (如: swr.cn-north-4.myhuaweicloud.com)
+#
+# === 阿里云服务器 (生产环境) ===
+#   - ALIYUN_SERVER_HOST: 阿里云服务器 IP 地址 (加密)
+#   - ALIYUN_SERVER_USER: SSH 用户名 (如: root)
+#   - ALIYUN_SERVER_SSH_KEY: SSH 私钥 (加密, Base64编码)
+#   - ALIYUN_DEPLOY_PATH: 部署目录 (如: /opt/go-nomads)
+#
+# ============================================================
+
+version: '1.0'
+name: go-nomads-admin-cicd
+displayName: Go-Nomads Web CI/CD (华为云SWR + 阿里云部署)
+
+# 全局变量
+env:
+  NODE_VERSION: '20'
+  DOCKER_BUILDKIT: '1'
+
+stages:
+  # ============================================================
+  # 阶段 1: 构建和测试
+  # ============================================================
+  - stage:
+    name: build_and_test
+    displayName: 构建和测试
+    steps:
+      - step: shell@agent
+        name: node_build
+        displayName: Next.js 构建
+        agentSelector:
+          labels:
+            - docker
+        script:
+          - echo "===== 设置 Node.js ====="
+          - |
+            if ! command -v node &> /dev/null; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+            fi
+          - node --version
+          - npm --version
+          - echo "===== 安装依赖 ====="
+          - npm ci || npm install
+          - echo "===== 代码检查 ====="
+          - npm run lint || true
+          - echo "===== 构建 Next.js ====="
+          - npm run build
+          - echo "===== 构建完成 ====="
+
+  # ============================================================
+  # 阶段 2: 构建 Docker 镜像并推送到华为云 SWR
+  # ============================================================
+  - stage:
+    name: build_and_push_image
+    displayName: 构建并推送镜像到 SWR
+    when:
+      - branch:
+          include:
+            - main
+            - master
+            - develop
+            - 'release/*'
+    steps:
+      - step: shell@agent
+        name: docker_build_push
+        displayName: 构建并推送 Docker 镜像
+        agentSelector:
+          labels:
+            - docker
+        script:
+          - |
+            # 配置变量
+            SERVICE_NAME="go-nomads-admin"
+            IMAGE="${SWR_LOGIN_SERVER}/${SWR_ORGANIZATION}/${SERVICE_NAME}"
+            TAG="${GITEE_COMMIT_SHA:0:8}"
+            
+            echo "===== 登录华为云 SWR ====="
+            docker login -u "${SWR_REGION}@${SWR_AK}" -p "${SWR_SK}" ${SWR_LOGIN_SERVER}
+            
+            echo "===== 构建 Docker 镜像 ====="
+            docker build \
+              --build-arg NODE_ENV=production \
+              -t ${IMAGE}:${TAG} \
+              -t ${IMAGE}:latest \
+              .
+            
+            echo "===== 推送镜像到 SWR ====="
+            docker push ${IMAGE}:${TAG}
+            docker push ${IMAGE}:latest
+            
+            echo "✓ 镜像推送成功"
+            echo "  - ${IMAGE}:${TAG}"
+            echo "  - ${IMAGE}:latest"
+
+  # ============================================================
+  # 阶段 3: 部署到阿里云服务器
+  # ============================================================
+  - stage:
+    name: deploy_to_aliyun
+    displayName: 部署到阿里云服务器
+    when:
+      - branch:
+          include:
+            - main
+            - master
+    steps:
+      - step: shell@agent
+        name: deploy_web
+        displayName: 部署 Web 应用到阿里云
+        agentSelector:
+          labels:
+            - docker
+        script:
+          - |
+            echo "===== 准备 SSH 密钥 ====="
+            mkdir -p ~/.ssh
+            echo "${ALIYUN_SERVER_SSH_KEY}" | base64 -d > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            
+            # 禁用 SSH 主机密钥检查
+            echo "Host *" >> ~/.ssh/config
+            echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+            echo "  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+            chmod 600 ~/.ssh/config
+            
+            TAG="${GITEE_COMMIT_SHA:0:8}"
+            
+            echo "===== 连接阿里云服务器并部署 ====="
+            ssh -i ~/.ssh/deploy_key ${ALIYUN_SERVER_USER}@${ALIYUN_SERVER_HOST} << 'DEPLOY_SCRIPT'
+              set -e
+              
+              echo "===== 登录华为云 SWR ====="
+              docker login -u "${SWR_REGION}@${SWR_AK}" -p "${SWR_SK}" ${SWR_LOGIN_SERVER}
+              
+              echo "===== 进入部署目录 ====="
+              cd ${ALIYUN_DEPLOY_PATH}
+              
+              echo "===== 设置镜像标签 ====="
+              export IMAGE_TAG="${TAG}"
+              export SWR_SERVER="${SWR_LOGIN_SERVER}"
+              export SWR_ORG="${SWR_ORGANIZATION}"
+              
+              echo "===== 拉取最新 Web 镜像 ====="
+              docker-compose -f docker-compose-web-swr.yml pull
+              
+              echo "===== 停止旧 Web 服务 ====="
+              docker-compose -f docker-compose-web-swr.yml down --remove-orphans || true
+              
+              echo "===== 启动新 Web 服务 ====="
+              export IMAGE_TAG="${TAG}"
+              export SWR_REGISTRY="${SWR_LOGIN_SERVER}"
+              export SWR_ORGANIZATION="${SWR_ORGANIZATION}"
+              docker-compose -f docker-compose-web-swr.yml up -d
+              
+              echo "===== 清理旧镜像 ====="
+              docker image prune -f
+              
+              echo "===== 检查服务状态 ====="
+              docker-compose -f docker-compose-web-swr.yml ps
+              
+              echo "✓ Web 部署完成"
+            DEPLOY_SCRIPT
+            
+            echo "===== 清理 SSH 密钥 ====="
+            rm -f ~/.ssh/deploy_key
+            
+            echo "✓ 阿里云服务器部署成功"
+
+  # ============================================================
+  # 阶段 4: 部署通知
+  # ============================================================
+  - stage:
+    name: notify
+    displayName: 构建通知
+    steps:
+      - step: shell@agent
+        name: send_notification
+        displayName: 发送通知
+        agentSelector:
+          labels:
+            - docker
+        script:
+          - |
+            echo "===== 构建完成 ====="
+            echo "分支: ${GITEE_BRANCH}"
+            echo "提交: ${GITEE_COMMIT_SHA}"
+            echo "镜像已推送到华为云 SWR"
+            echo "Web 应用已部署到阿里云服务器"
+
+# ============================================================
+# 触发条件
+# ============================================================
+triggers:
+  push:
+    branches:
+      include:
+        - main
+        - master
+        - develop
+        - 'release/*'
+  tag:
+    include:
+      - 'v*'

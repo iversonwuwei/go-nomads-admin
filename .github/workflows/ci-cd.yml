@@ -1,0 +1,140 @@
+# Go-Nomads Web CI/CD Pipeline
+# GitHub Actions + 华为云 SWR + 阿里云服务器部署
+
+name: Go-Nomads Web CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================================
+  # 阶段 1: 构建和测试
+  # ============================================================
+  build:
+    name: 构建和测试
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 启用 Corepack 并安装依赖
+        run: |
+          corepack enable
+          corepack prepare yarn@4.5.1 --activate
+          yarn install --immutable
+
+      - name: 代码检查
+        run: yarn run lint:biome
+        continue-on-error: true
+
+      - name: 构建
+        run: yarn run build
+
+  # ============================================================
+  # 阶段 2: 构建 Docker 镜像并推送到华为云 SWR
+  # ============================================================
+  build-and-push:
+    name: 构建并推送镜像
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录华为云 SWR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.SWR_LOGIN_SERVER }}
+          username: ${{ vars.SWR_REGION }}@${{ secrets.SWR_AK }}
+          password: ${{ secrets.SWR_SK }}
+
+      - name: 构建并推送 Web 镜像
+        run: |
+          IMAGE="${{ vars.SWR_LOGIN_SERVER }}/${{ vars.SWR_ORGANIZATION }}/go-nomads-admin"
+          TAG="${{ github.sha }}"
+          SHORT_TAG="${TAG:0:8}"
+          
+          echo "构建镜像: ${IMAGE}:${SHORT_TAG}"
+          docker build --provenance=false -t ${IMAGE}:${SHORT_TAG} -t ${IMAGE}:latest .
+          
+          echo "推送镜像..."
+          docker push ${IMAGE}:${SHORT_TAG}
+          docker push ${IMAGE}:latest
+          echo "✓ go-nomads-admin 推送成功"
+
+  # ============================================================
+  # 阶段 3: 部署到阿里云服务器
+  # ============================================================
+  deploy:
+    name: 部署到阿里云
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+      - name: 部署到阿里云服务器
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.ALIYUN_SERVER_HOST }}
+          username: ${{ vars.ALIYUN_SERVER_USER }}
+          key: ${{ secrets.ALIYUN_SERVER_SSH_KEY }}
+          script: |
+            echo "===== 登录华为云 SWR ====="
+            docker login -u "${{ vars.SWR_REGION }}@${{ secrets.SWR_AK }}" -p "${{ secrets.SWR_SK }}" ${{ vars.SWR_LOGIN_SERVER }}
+            
+            echo "===== 进入部署目录 ====="
+            cd ${{ vars.ALIYUN_DEPLOY_PATH }}
+            
+            echo "===== 拉取最新 Web 镜像 ====="
+            docker compose -f docker-compose-web-swr.yml pull
+            
+            echo "===== 重启 Web 服务 ====="
+            docker compose -f docker-compose-web-swr.yml down || true
+            docker compose -f docker-compose-web-swr.yml up -d
+            
+            echo "===== 清理旧镜像 ====="
+            docker image prune -f
+            
+            echo "===== 检查服务状态 ====="
+            docker compose -f docker-compose-web-swr.yml ps
+            
+            echo "✓ Web 部署完成"
+
+  # ============================================================
+  # 阶段 4: 通知
+  # ============================================================
+  notify:
+    name: 发送通知
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy]
+    if: always()
+    
+    steps:
+      - name: 构建结果通知
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Go-Nomads Web 部署成功"
+          else
+            echo "❌ Go-Nomads Web 部署失败"
+          fi

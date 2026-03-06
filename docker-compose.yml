@@ -1,0 +1,22 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:20.18.0-alpine}
+    image: go-nomads-admin:latest
+    container_name: go-nomads-admin
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      API_BASE: http://go-nomads-nginx/api/v1
+    ports:
+      - "3002:3002"
+    command: ["node", "server.js"]
+    restart: unless-stopped
+    networks:
+      - go-nomads-network
+
+networks:
+  go-nomads-network:
+    external: true

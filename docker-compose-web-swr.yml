@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  web:
+    image: ${SWR_REGISTRY:-swr.ap-southeast-3.myhuaweicloud.com}/${SWR_ORGANIZATION:-go-nomads}/go-nomads-admin:${IMAGE_TAG:-latest}
+    container_name: go-nomads-admin
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      API_BASE: ${API_BASE:-http://api.go-nomads.com/api/v1}
+    ports:
+      - "3002:3002"
+    command: ["node", "server.js"]
+    restart: unless-stopped
+    pull_policy: always
+    networks:
+      - go-nomads-network
+
+networks:
+  go-nomads-network:
+    external: true
