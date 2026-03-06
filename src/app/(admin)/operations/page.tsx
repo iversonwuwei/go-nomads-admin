@@ -3,8 +3,8 @@ import Link from "next/link";
 const entries = [
   {
     href: "/dashboard",
-    title: "数据中心 / Dashboard",
-    desc: "平台核心指标、审核队列、服务健康。",
+    title: "数据总览 / Analytics Dashboard",
+    desc: "统一展示平台核心统计指标，支持后续扩展更多维度。",
   },
   {
     href: "/moderation/reports",

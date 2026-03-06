@@ -21,7 +21,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   {
     title: "数据中心",
-    subtitle: "Dashboard",
+    subtitle: "Analytics",
     href: "/dashboard",
     icon: ChartBarSquareIcon,
   },

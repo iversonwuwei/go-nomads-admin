@@ -66,31 +66,22 @@ export type ReportDto = {
   updatedAt?: string;
 };
 
-export type DashboardKpi = {
-  activeUsers: number;
-  citiesCovered: number;
-  coworkingSpaces: number;
-  openTickets: number;
+export type DashboardUserMetrics = {
+  totalUsers: number;
+  newUsers: number;
 };
 
-export type DashboardQueueItem = {
-  id: string;
-  type: string;
-  city: string;
-  status: string;
-  updatedAt: string;
-};
-
-export type DashboardServiceHealth = {
-  name: string;
-  status: "Healthy" | "Warning";
-  latency: string;
+export type DashboardEntityMetrics = {
+  cities: number;
+  coworkings: number;
+  meetups: number;
+  innovations: number;
 };
 
 export type DashboardOverview = {
-  kpi: DashboardKpi;
-  queue: DashboardQueueItem[];
-  serviceHealth: DashboardServiceHealth[];
+  calculatedDate: string;
+  users: DashboardUserMetrics;
+  entities: DashboardEntityMetrics;
 };
 
 export type CityAdminDto = {
@@ -424,72 +415,54 @@ export async function fetchReportById(reportId: string) {
 }
 
 export async function fetchDashboardOverview() {
-  const usersTask = apiGet<unknown>("/users?page=1&pageSize=1");
+  const usersTask = apiGet<unknown>("/users/dashboard/overview");
   const citiesTask = apiGet<unknown>("/cities/list?pageNumber=1&pageSize=1");
-  const coworkingTask = apiGet<unknown>("/coworking?page=1&pageSize=1");
-  const reportsTask = apiGet<unknown[]>("/reports/my");
+  const coworkingsTask = apiGet<unknown>("/coworking?page=1&pageSize=1");
+  const meetupsTask = apiGet<unknown>("/events?page=1&pageSize=1");
+  const innovationsTask = apiGet<unknown>("/innovations?page=1&pageSize=1");
 
-  const [usersRes, citiesRes, coworkingRes, reportsRes] = await Promise.all([
+  const [usersRes, citiesRes, coworkingsRes, meetupsRes, innovationsRes] = await Promise.all([
     usersTask,
     citiesTask,
-    coworkingTask,
-    reportsTask,
+    coworkingsTask,
+    meetupsTask,
+    innovationsTask,
   ]);
 
   const usersPayload = (usersRes.data ?? {}) as Dict;
+  const rawUsers = (readField<unknown>(usersPayload, "users", "Users") ?? {}) as Dict;
+
   const citiesPayload = (citiesRes.data ?? {}) as Dict;
-  const coworkingPayload = (coworkingRes.data ?? {}) as Dict;
-  const reportRows = Array.isArray(reportsRes.data) ? reportsRes.data : [];
+  const coworkingsPayload = (coworkingsRes.data ?? {}) as Dict;
+  const meetupsPayload = (meetupsRes.data ?? {}) as Dict;
+  const innovationsPayload = (innovationsRes.data ?? {}) as Dict;
 
-  const activeUsers = Number(readField<number>(usersPayload, "totalCount", "TotalCount") || 0);
-  const citiesCovered = Number(readField<number>(citiesPayload, "totalCount", "TotalCount") || 0);
-  const coworkingSpaces = Number(readField<number>(coworkingPayload, "totalCount", "TotalCount") || 0);
+  const cities = Number(readField<number>(citiesPayload, "totalCount", "TotalCount") ?? 0);
+  const coworkings = Number(readField<number>(coworkingsPayload, "totalCount", "TotalCount") ?? 0);
+  const meetups = Number(readField<number>(meetupsPayload, "totalCount", "TotalCount") ?? 0);
+  const innovations = Number(readField<number>(innovationsPayload, "totalCount", "TotalCount") ?? 0);
 
-  const reports = reportRows
-    .map((x) => {
-      const row = (x ?? {}) as Dict;
-      const id = String(readField<string | number>(row, "id", "Id") ?? "");
-      if (!id) return null;
-      return {
-        id,
-        contentType: readField<string>(row, "contentType", "ContentType") || "-",
-        targetName: readField<string>(row, "targetName", "TargetName") || "-",
-        status: readField<string>(row, "status", "Status") || "pending",
-        updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || readField<string>(row, "createdAt", "CreatedAt") || "-",
-      };
-    })
-    .filter((x): x is { id: string; contentType: string; targetName: string; status: string; updatedAt: string } => x !== null);
-
-  const openTickets = reports.filter((x) => (x.status || "").toLowerCase() !== "resolved").length;
-
-  const queue: DashboardQueueItem[] = reports.slice(0, 5).map((x) => ({
-    id: x.id,
-    type: x.contentType || "-",
-    city: x.targetName || "-",
-    status: x.status || "pending",
-    updatedAt: x.updatedAt || "-",
-  }));
-
-  const serviceHealth: DashboardServiceHealth[] = [
-    { name: "Users API", status: usersRes.ok ? "Healthy" : "Warning", latency: usersRes.ok ? "online" : "error" },
-    { name: "Cities API", status: citiesRes.ok ? "Healthy" : "Warning", latency: citiesRes.ok ? "online" : "error" },
-    { name: "Coworking API", status: coworkingRes.ok ? "Healthy" : "Warning", latency: coworkingRes.ok ? "online" : "error" },
-    { name: "Reports API", status: reportsRes.ok ? "Healthy" : "Warning", latency: reportsRes.ok ? "online" : "error" },
-  ];
-
-  const ok = usersRes.ok && citiesRes.ok && coworkingRes.ok && reportsRes.ok;
+  const ok = usersRes.ok && citiesRes.ok && coworkingsRes.ok && meetupsRes.ok && innovationsRes.ok;
   const message = ok
-    ? "Dashboard overview loaded"
-    : `Users:${usersRes.status} Cities:${citiesRes.status} Coworking:${coworkingRes.status} Reports:${reportsRes.status}`;
+    ? usersRes.message
+    : `users:${usersRes.status} cities:${citiesRes.status} coworkings:${coworkingsRes.status} meetups:${meetupsRes.status} innovations:${innovationsRes.status}`;
 
   return {
     ok,
-    status: ok ? 200 : 207,
+    status: ok ? usersRes.status : 207,
     message,
     data: {
-      kpi: { activeUsers, citiesCovered, coworkingSpaces, openTickets },
-      queue,
-      serviceHealth,
+      calculatedDate: String(readField<string>(usersPayload, "calculatedDate", "CalculatedDate") ?? "-"),
+      users: {
+        totalUsers: Number(readField<number>(rawUsers, "totalUsers", "TotalUsers") ?? 0),
+        newUsers: Number(readField<number>(rawUsers, "newUsers", "NewUsers") ?? 0),
+      },
+      entities: {
+        cities,
+        coworkings,
+        meetups,
+        innovations,
+      },
     } satisfies DashboardOverview,
   };
 }
