@@ -1,5 +1,13 @@
 import ReportsTableClient from "@/app/components/admin/reports-table-client";
-import { fetchMyReports, fetchReportById } from "@/app/lib/admin-api";
+import {
+    fetchCityById,
+    fetchCoworkingById,
+    fetchInnovationById,
+    fetchMeetupById,
+    fetchMyReports,
+    fetchReportById,
+    fetchUserById,
+} from "@/app/lib/admin-api";
 
 type ReportsPageProps = {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -17,6 +25,42 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const listRes = await fetchMyReports();
   const reportRows = listRes.data ?? [];
   const detailRes = reportId ? await fetchReportById(reportId) : null;
+  const detail = detailRes?.ok ? detailRes.data : null;
+
+  const reporterRes = detail?.reporterId ? await fetchUserById(detail.reporterId) : null;
+
+  let targetResolved: string | null = null;
+  if (detail?.targetId) {
+    const contentType = (detail.contentType || "").toLowerCase();
+    const targetId = detail.targetId;
+
+    if (contentType === "user") {
+      const userRes = await fetchUserById(targetId);
+      if (userRes.ok && userRes.data) {
+        targetResolved = `${userRes.data.name || "-"} (${userRes.data.email || userRes.data.id})`;
+      }
+    } else if (contentType === "city") {
+      const cityRes = await fetchCityById(targetId);
+      if (cityRes.ok && cityRes.data) {
+        targetResolved = `${cityRes.data.name || cityRes.data.id} / ${cityRes.data.country || "-"}`;
+      }
+    } else if (contentType === "coworking") {
+      const coworkingRes = await fetchCoworkingById(targetId);
+      if (coworkingRes.ok && coworkingRes.data) {
+        targetResolved = `${coworkingRes.data.name || coworkingRes.data.id} / ${coworkingRes.data.cityName || coworkingRes.data.cityId || "-"}`;
+      }
+    } else if (contentType === "meetup" || contentType === "event") {
+      const meetupRes = await fetchMeetupById(targetId);
+      if (meetupRes.ok && meetupRes.data) {
+        targetResolved = `${meetupRes.data.title || meetupRes.data.id} / ${meetupRes.data.organizerName || meetupRes.data.organizerId || "-"}`;
+      }
+    } else if (contentType === "innovationproject" || contentType === "innovation") {
+      const innovationRes = await fetchInnovationById(targetId);
+      if (innovationRes.ok && innovationRes.data) {
+        targetResolved = `${innovationRes.data.title || innovationRes.data.id} / ${innovationRes.data.creatorName || innovationRes.data.creatorId || "-"}`;
+      }
+    }
+  }
 
   return (
     <section className="space-y-5">
@@ -76,6 +120,10 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
               {detailRes.data.contentType || "-"}
             </p>
             <p>
+              <span className="text-base-content/60">对象:</span>{" "}
+              {targetResolved || detailRes.data.targetName || "-"}
+            </p>
+            <p>
               <span className="text-base-content/60">对象 ID:</span>{" "}
               <span className="font-mono">{detailRes.data.targetId || "-"}</span>
             </p>
@@ -85,7 +133,9 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             </p>
             <p>
               <span className="text-base-content/60">举报人:</span>{" "}
-              {detailRes.data.reporterName || detailRes.data.reporterId || "-"}
+              {reporterRes?.ok && reporterRes.data
+                ? `${reporterRes.data.name || "-"} (${reporterRes.data.email || reporterRes.data.id})`
+                : detailRes.data.reporterName || detailRes.data.reporterId || "-"}
             </p>
           </div>
         </article>

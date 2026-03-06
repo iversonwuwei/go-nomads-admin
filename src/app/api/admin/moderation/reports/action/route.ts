@@ -1,3 +1,5 @@
+import { resolveApiBase } from "@/app/lib/runtime-api-base";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 type ReportActionPayload = {
@@ -7,15 +9,11 @@ type ReportActionPayload = {
 };
 
 function getApiBase(): string {
-  return process.env.API_BASE || "https://api.go-nomads.com/api/v1";
+  return resolveApiBase();
 }
 
 function getAuthToken(): string | undefined {
   return process.env.ADMIN_BEARER_TOKEN;
-}
-
-function isDryRun() {
-  return process.env.ADMIN_ACTION_DRY_RUN !== "false";
 }
 
 export async function POST(request: Request) {
@@ -31,24 +29,14 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isDryRun()) {
-    return NextResponse.json({
-      success: true,
-      message: "Dry-run success (report admin action endpoint pending)",
-      data: {
-        reportId,
-        action,
-        note,
-        operatedAt: new Date().toISOString(),
-      },
-    });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_access_token")?.value || getAuthToken();
+  if (!token) {
+    return NextResponse.json({ success: false, message: "未登录" }, { status: 401 });
   }
-
-  const token = getAuthToken();
   const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  headers.Authorization = `Bearer ${token}`;
 
-  // NOTE: endpoint is a planned backend contract.
   const endpoint = `${getApiBase()}/reports/${encodeURIComponent(reportId)}/${action}`;
 
   const upstream = await fetch(endpoint, {
@@ -77,9 +65,9 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({
-    success: true,
-    message: "Report action submitted",
-    upstream: raw,
-  });
+  try {
+    return NextResponse.json(raw ? JSON.parse(raw) : { success: true, message: "Report action submitted" });
+  } catch {
+    return NextResponse.json({ success: true, message: "Report action submitted", raw });
+  }
 }

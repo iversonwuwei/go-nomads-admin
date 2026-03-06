@@ -1,7 +1,11 @@
 import {
+    BuildingOffice2Icon,
+    CalendarDaysIcon,
     ChartBarSquareIcon,
     ExclamationTriangleIcon,
     FolderOpenIcon,
+    LightBulbIcon,
+    MapPinIcon,
     PhotoIcon,
     ShieldCheckIcon,
     UserGroupIcon,
@@ -50,5 +54,29 @@ export const navItems: NavItem[] = [
     subtitle: "Users",
     href: "/users",
     icon: UserGroupIcon,
+  },
+  {
+    title: "城市资源",
+    subtitle: "Cities",
+    href: "/cities",
+    icon: MapPinIcon,
+  },
+  {
+    title: "联合办公",
+    subtitle: "Coworking",
+    href: "/coworking",
+    icon: BuildingOffice2Icon,
+  },
+  {
+    title: "创新项目",
+    subtitle: "Innovation",
+    href: "/innovation",
+    icon: LightBulbIcon,
+  },
+  {
+    title: "活动管理",
+    subtitle: "Meetups",
+    href: "/meetups",
+    icon: CalendarDaysIcon,
   },
 ];

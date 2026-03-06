@@ -1,5 +1,7 @@
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+  exclude: radialprogress;
+}
 
 :root {
   color-scheme: light;
@@ -17,4 +19,100 @@ body {
     hsl(var(--b2));
   color: hsl(var(--bc));
   font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+}
+
+.auth-feedback {
+  animation: auth-feedback-in 180ms ease-out;
+}
+
+.auth-field-invalid {
+  border-color: rgb(248 113 113 / 1);
+}
+
+.auth-field-invalid:focus {
+  border-color: rgb(239 68 68 / 1);
+  box-shadow: 0 0 0 3px rgb(254 202 202 / 0.6);
+}
+
+@keyframes auth-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-glow {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.auth-fade-up {
+  animation-name: auth-fade-up;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+.auth-fade-up-a {
+  animation-duration: 520ms;
+}
+
+.auth-fade-up-b {
+  animation-duration: 620ms;
+}
+
+.auth-glow {
+  animation-name: auth-glow;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.auth-glow-cyan {
+  animation-duration: 7s;
+}
+
+.auth-glow-orange {
+  animation-duration: 9s;
+}
+
+.auth-glow-indigo {
+  animation-duration: 8s;
+}
+
+.auth-strength-w-0 {
+  width: 0%;
+}
+
+.auth-strength-w-1 {
+  width: 33.333333%;
+}
+
+.auth-strength-w-2 {
+  width: 66.666667%;
+}
+
+.auth-strength-w-3 {
+  width: 100%;
 }

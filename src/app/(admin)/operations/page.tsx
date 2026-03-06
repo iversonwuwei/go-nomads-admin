@@ -26,6 +26,26 @@ const entries = [
     title: "用户中心 / Users",
     desc: "用户查询、角色筛选与状态治理。",
   },
+  {
+    href: "/cities",
+    title: "城市列表 / Cities",
+    desc: "城市列表与详情查看，支持关联资源分析。",
+  },
+  {
+    href: "/coworking",
+    title: "联合办公 / Coworking",
+    desc: "联合办公空间列表与详情，关联城市与创建人信息。",
+  },
+  {
+    href: "/innovation",
+    title: "创新项目 / Innovation",
+    desc: "创新项目列表与详情，展示创建人和热度指标。",
+  },
+  {
+    href: "/meetups",
+    title: "活动列表 / Meetups",
+    desc: "Meetup(Event) 列表与详情，展示组织者与城市关联。",
+  },
 ];
 
 export default function OperationsPage() {

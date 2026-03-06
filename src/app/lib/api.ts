@@ -1,3 +1,5 @@
+import { resolveApiBase } from "@/app/lib/runtime-api-base";
+
 // ============================================================
 // Go Nomads Web — API 工具层
 // 通过环境变量 API_BASE 配置后端地址（仅服务端运行时读取）
@@ -7,7 +9,7 @@
 
 /** 服务端 API 基地址（Server Components / Route Handlers 使用） */
 function getApiBase(): string {
-	return process.env.API_BASE || "https://api.go-nomads.com/api/v1";
+	return resolveApiBase();
 }
 
 // ─── 通用响应信封 ────────────────────────────────────

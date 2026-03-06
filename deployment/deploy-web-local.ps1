@@ -17,7 +17,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ($Help) {
-  Write-Host "Usage: ./deploy-web-local.ps1 [-SkipBuild] [-ForceRecreate] [-Clean] [-Help]" 
+  Write-Host "Usage: ./deploy-web-local.ps1 [-SkipBuild] [-ForceRecreate] [-Clean] [-Help]"
+  Write-Host "Note: this script now ALWAYS removes existing container/image and rebuilds." -ForegroundColor Yellow
   exit 0
 }
 
@@ -53,6 +54,10 @@ Write-Host "Using compose: $($ComposeCmd -join ' ')" -ForegroundColor Cyan
 Write-Host "Project root: $RootDir" -ForegroundColor Cyan
 Write-Host "Platform: linux/amd64" -ForegroundColor Cyan
 
+if ($SkipBuild) {
+  Write-Host "[Info] -SkipBuild is ignored. Script enforces clean rebuild deployment." -ForegroundColor Yellow
+}
+
 Assert-DockerReady
 
 # 设置构建平台环境变量
@@ -60,18 +65,51 @@ $env:DOCKER_DEFAULT_PLATFORM = "linux/amd64"
 $env:DOCKER_BUILDKIT = "1"
 $env:COMPOSE_DOCKER_CLI_BUILD = "1"
 
-# 构建完整的参数列表
-$upArgs = @('-f', $ComposeFile, 'up', '-d')
-if (-not $SkipBuild) { $upArgs += '--build' }
-if ($ForceRecreate) { $upArgs += '--force-recreate' }
+# 目标容器/镜像
+$ContainerName = "go-nomads-admin"
+$ImageName = "go-nomads-admin:latest"
+
+# 构建完整的参数列表（强制重建）
+$upArgs = @('-f', $ComposeFile, 'up', '-d', '--build', '--force-recreate')
 if ($Clean) { $upArgs += '--remove-orphans' }
 
 Push-Location $RootDir
 try {
+  $nativeErrPref = $PSNativeCommandUseErrorActionPreference
+  $PSNativeCommandUseErrorActionPreference = $false
+  $errorActionPrefBeforeCleanup = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+
+  Write-Host "Stopping existing stack..." -ForegroundColor Yellow
+  & $ComposeCmd[0] $ComposeCmd[1] -f $ComposeFile --ansi never down --remove-orphans *> $null
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "[Warn] compose down returned exit code $LASTEXITCODE, continue cleanup..." -ForegroundColor Yellow
+  }
+
+  Write-Host "Removing existing container (if present): $ContainerName" -ForegroundColor Yellow
+  & $ComposeCmd[0] rm -f $ContainerName *> $null
+
+  Write-Host "Removing existing image (if present): $ImageName" -ForegroundColor Yellow
+  & $ComposeCmd[0] rmi -f $ImageName *> $null
+
+  # 恢复严格模式，后续 build/up 失败时应直接终止。
+  $ErrorActionPreference = $errorActionPrefBeforeCleanup
+  $PSNativeCommandUseErrorActionPreference = $nativeErrPref
+
+  Write-Host "Rebuilding and starting container..." -ForegroundColor Yellow
   & $ComposeCmd[0] $ComposeCmd[1] @upArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "compose up failed with exit code $LASTEXITCODE"
+  }
+
   & $ComposeCmd[0] $ComposeCmd[1] -f $ComposeFile ps
+  if ($LASTEXITCODE -ne 0) {
+    throw "compose ps failed with exit code $LASTEXITCODE"
+  }
 }
 finally {
+  $ErrorActionPreference = $errorActionPrefBeforeCleanup
+  $PSNativeCommandUseErrorActionPreference = $nativeErrPref
   Pop-Location
 }
 

@@ -1,4 +1,5 @@
 import type { ApiResponse, LegalDocument } from "@/app/lib/api";
+import { resolveApiBase } from "@/app/lib/runtime-api-base";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
@@ -9,8 +10,7 @@ import { type NextRequest, NextResponse } from "next/server";
  */
 export async function GET(req: NextRequest) {
 	const lang = req.nextUrl.searchParams.get("lang") || "zh";
-	const apiBase =
-		process.env.API_BASE || "https://api.go-nomads.com/api/v1";
+	const apiBase = resolveApiBase();
 
 	try {
 		const res = await fetch(

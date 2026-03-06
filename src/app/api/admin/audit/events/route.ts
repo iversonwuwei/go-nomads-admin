@@ -1,3 +1,5 @@
+import { resolveApiBase } from "@/app/lib/runtime-api-base";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 type AuditEventPayload = {
@@ -19,18 +21,12 @@ type AuditEvent = {
   happenedAt: string;
 };
 
-const inMemoryAuditEvents: AuditEvent[] = [];
-
 function getApiBase(): string {
-  return process.env.API_BASE || "https://api.go-nomads.com/api/v1";
+  return resolveApiBase();
 }
 
 function getAuthToken(): string | undefined {
   return process.env.ADMIN_BEARER_TOKEN;
-}
-
-function isDryRun() {
-  return process.env.ADMIN_ACTION_DRY_RUN !== "false";
 }
 
 function parseScope(input?: string) {
@@ -60,14 +56,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const scope = parseScope(url.searchParams.get("scope") || "global");
 
-  if (isDryRun()) {
-    const rows = inMemoryAuditEvents.filter((x) => x.scope === scope).slice(0, 100);
-    return NextResponse.json({ success: true, message: "OK(dry-run)", data: rows });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_access_token")?.value || getAuthToken();
+  if (!token) {
+    return NextResponse.json({ success: false, message: "未登录", data: [] }, { status: 401 });
   }
-
-  const token = getAuthToken();
   const headers: HeadersInit = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
+  headers.Authorization = `Bearer ${token}`;
 
   const endpoint = `${getApiBase()}/admin/audit/events?scope=${encodeURIComponent(scope)}`;
   const upstream = await fetch(endpoint, {
@@ -99,20 +94,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: "Invalid payload" }, { status: 400 });
   }
 
-  if (isDryRun()) {
-    inMemoryAuditEvents.unshift(event);
-    if (inMemoryAuditEvents.length > 500) inMemoryAuditEvents.length = 500;
-
-    return NextResponse.json({
-      success: true,
-      message: "Saved(dry-run)",
-      data: event,
-    });
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_access_token")?.value || getAuthToken();
+  if (!token) {
+    return NextResponse.json({ success: false, message: "未登录" }, { status: 401 });
   }
-
-  const token = getAuthToken();
   const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  headers.Authorization = `Bearer ${token}`;
 
   const endpoint = `${getApiBase()}/admin/audit/events`;
   const upstream = await fetch(endpoint, {
@@ -134,5 +122,10 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ success: true, message: "Saved", data: event, upstream: raw });
+  try {
+    const json = raw ? JSON.parse(raw) : { success: true, message: "Saved", data: event };
+    return NextResponse.json(json);
+  } catch {
+    return NextResponse.json({ success: true, message: "Saved", raw });
+  }
 }

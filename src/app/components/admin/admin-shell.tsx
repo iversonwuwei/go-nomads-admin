@@ -1,8 +1,10 @@
 "use client";
 
+import { fetchCurrentAdmin, logoutAdmin, type AuthUser } from "@/app/lib/auth-client";
 import { Bars3Icon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { navItems } from "./nav-config";
 
 type AdminShellProps = {
@@ -11,6 +13,38 @@ type AdminShellProps = {
 
 export default function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [currentAdmin, setCurrentAdmin] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchCurrentAdmin().then((res) => {
+      if (!mounted) return;
+      if (res.success && res.data) {
+        setCurrentAdmin(res.data);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const adminInitial = useMemo(() => {
+    const source = currentAdmin?.name || currentAdmin?.email || "A";
+    return source.charAt(0).toUpperCase();
+  }, [currentAdmin?.email, currentAdmin?.name]);
+
+  const adminRole = useMemo(() => {
+    const role = (currentAdmin?.role || "admin").toLowerCase();
+    return role === "superadmin" ? "Super Admin" : "Admin";
+  }, [currentAdmin?.role]);
+
+  async function handleLogout() {
+    await logoutAdmin();
+    router.replace("/login");
+  }
 
   return (
     <div className="min-h-screen">
@@ -46,6 +80,22 @@ export default function AdminShell({ children }: AdminShellProps) {
 
               <button type="button" className="btn btn-primary btn-sm">
                 + 新建任务
+              </button>
+
+              <div className="hidden items-center gap-2 rounded-xl border border-base-300/70 bg-base-100 px-2 py-1 lg:flex">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold text-primary">
+                  {adminInitial}
+                </div>
+                <div className="leading-tight">
+                  <p className="text-xs font-semibold text-base-content">
+                    {currentAdmin?.name || currentAdmin?.email || "管理员"}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-base-content/60">{adminRole}</p>
+                </div>
+              </div>
+
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+                退出
               </button>
             </div>
           </header>

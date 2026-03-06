@@ -16,6 +16,19 @@ function nextStatus(current: string, action: "assign" | "resolve" | "dismiss") {
   return current || "pending";
 }
 
+function getTargetHref(row: ReportDto) {
+  const targetId = (row.targetId || "").trim();
+  const contentType = (row.contentType || "").toLowerCase();
+  if (!targetId) return "";
+
+  if (contentType === "city") return `/cities/${encodeURIComponent(targetId)}`;
+  if (contentType === "meetup" || contentType === "event") return `/meetups/${encodeURIComponent(targetId)}`;
+  if (contentType === "innovationproject" || contentType === "innovation") return `/innovation/${encodeURIComponent(targetId)}`;
+  if (contentType === "coworking") return `/coworking/${encodeURIComponent(targetId)}`;
+  if (contentType === "user") return `/users?q=${encodeURIComponent(targetId)}`;
+  return "";
+}
+
 export default function ReportsTableClient({ initialRows }: ReportsTableClientProps) {
   const [rows, setRows] = useState<ReportDto[]>(initialRows);
   const [auditTrail, setAuditTrail] = useState<AdminAuditEvent[]>([]);
@@ -96,9 +109,25 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
               <tr key={row.id}>
                 <td className="font-mono text-xs">{row.id}</td>
                 <td>{row.contentType || "-"}</td>
-                <td className="font-mono text-xs">{row.targetId || "-"}</td>
+                <td>
+                  {getTargetHref(row) ? (
+                    <a href={getTargetHref(row)} className="link link-primary">
+                      {row.targetName || row.targetId || "-"}
+                    </a>
+                  ) : (
+                    <span>{row.targetName || row.targetId || "-"}</span>
+                  )}
+                  {row.targetName && row.targetId ? (
+                    <p className="font-mono text-xs text-base-content/60">{row.targetId}</p>
+                  ) : null}
+                </td>
                 <td>{row.reasonLabel || row.reasonId || "-"}</td>
-                <td>{row.reporterName || row.reporterId || "-"}</td>
+                <td>
+                  <p>{row.reporterName || row.reporterId || "-"}</p>
+                  {row.reporterName && row.reporterId ? (
+                    <p className="font-mono text-xs text-base-content/60">{row.reporterId}</p>
+                  ) : null}
+                </td>
                 <td>
                   <span className="badge badge-outline badge-sm">{row.status || "pending"}</span>
                 </td>

@@ -1,3 +1,4 @@
+import { fetchDashboardOverview } from "@/app/lib/admin-api";
 import {
     BuildingOffice2Icon,
     ChartBarSquareIcon,
@@ -7,75 +8,39 @@ import {
     UsersIcon,
 } from "@heroicons/react/24/outline";
 
-const kpiCards = [
-  {
-    title: "活跃用户 / Active Users",
-    value: "12,486",
-    change: "+8.2%",
-    trend: "up",
-    icon: UsersIcon,
-  },
-  {
-    title: "城市覆盖 / Cities Covered",
-    value: "96",
-    change: "+4",
-    trend: "up",
-    icon: MapPinIcon,
-  },
-  {
-    title: "共享空间 / Coworking Spaces",
-    value: "1,342",
-    change: "+3.1%",
-    trend: "up",
-    icon: BuildingOffice2Icon,
-  },
-  {
-    title: "待处理工单 / Open Tickets",
-    value: "27",
-    change: "-5",
-    trend: "down",
-    icon: ClipboardDocumentListIcon,
-  },
-];
-
-const moderationQueue = [
-  {
-    id: "EVT-2319",
-    type: "活动 / Event",
-    city: "Chiang Mai",
-    status: "待审核 / Pending",
-    updatedAt: "2026-03-05 18:42",
-  },
-  {
-    id: "CWK-8841",
-    type: "空间 / Coworking",
-    city: "Bali",
-    status: "待补充 / Need Info",
-    updatedAt: "2026-03-05 17:15",
-  },
-  {
-    id: "ACC-1207",
-    type: "住宿 / Stay",
-    city: "Lisbon",
-    status: "已通过 / Approved",
-    updatedAt: "2026-03-05 16:02",
-  },
-];
-
-const systemHealth = [
-  { name: "Gateway", status: "Healthy", latency: "18ms" },
-  { name: "SearchService", status: "Healthy", latency: "34ms" },
-  { name: "MessageService", status: "Warning", latency: "146ms" },
-  { name: "AIService", status: "Healthy", latency: "52ms" },
-];
-
 function statusBadge(status: string) {
   if (status === "Healthy") return "badge badge-success badge-sm";
   if (status === "Warning") return "badge badge-warning badge-sm";
   return "badge badge-neutral badge-sm";
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const overview = await fetchDashboardOverview();
+  const data = overview.data;
+
+  const kpiCards = [
+    {
+      title: "活跃用户 / Active Users",
+      value: String(data.kpi.activeUsers),
+      icon: UsersIcon,
+    },
+    {
+      title: "城市覆盖 / Cities Covered",
+      value: String(data.kpi.citiesCovered),
+      icon: MapPinIcon,
+    },
+    {
+      title: "共享空间 / Coworking Spaces",
+      value: String(data.kpi.coworkingSpaces),
+      icon: BuildingOffice2Icon,
+    },
+    {
+      title: "待处理工单 / Open Tickets",
+      value: String(data.kpi.openTickets),
+      icon: ClipboardDocumentListIcon,
+    },
+  ];
+
   return (
     <section className="space-y-6">
       <header className="rounded-2xl border border-base-300/60 bg-base-100/85 p-6 shadow-sm backdrop-blur">
@@ -86,8 +51,7 @@ export default function DashboardPage() {
             </p>
             <h1 className="mt-2 text-3xl font-bold">管理控制台 / Admin Dashboard</h1>
             <p className="mt-2 text-sm text-base-content/70">
-              统一查看平台核心指标、内容审核与服务状态。 Unified view for KPIs,
-              moderation, and service health.
+              全部卡片与列表均来自后端服务实时数据。
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -103,10 +67,15 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {!overview.ok ? (
+        <div className="alert alert-warning">
+          <span>部分后端服务异常: {overview.message}</span>
+        </div>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpiCards.map((item) => {
           const Icon = item.icon;
-          const trendClass = item.trend === "up" ? "text-success" : "text-warning";
 
           return (
             <article
@@ -120,7 +89,6 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="mt-3 text-3xl font-semibold">{item.value}</p>
-              <p className={`mt-1 text-sm ${trendClass}`}>{item.change}</p>
             </article>
           );
         })}
@@ -140,23 +108,31 @@ export default function DashboardPage() {
                 <tr>
                   <th>ID</th>
                   <th>类型 / Type</th>
-                  <th>城市 / City</th>
+                  <th>对象 / Target</th>
                   <th>状态 / Status</th>
                   <th>更新时间 / Updated</th>
                 </tr>
               </thead>
               <tbody>
-                {moderationQueue.map((row) => (
-                  <tr key={row.id}>
-                    <td className="font-mono text-xs">{row.id}</td>
-                    <td>{row.type}</td>
-                    <td>{row.city}</td>
-                    <td>
-                      <span className="badge badge-outline badge-sm">{row.status}</span>
+                {data.queue.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-base-content/60">
+                      暂无后端返回的队列数据
                     </td>
-                    <td>{row.updatedAt}</td>
                   </tr>
-                ))}
+                ) : (
+                  data.queue.map((row) => (
+                    <tr key={row.id}>
+                      <td className="font-mono text-xs">{row.id}</td>
+                      <td>{row.type}</td>
+                      <td>{row.city}</td>
+                      <td>
+                        <span className="badge badge-outline badge-sm">{row.status}</span>
+                      </td>
+                      <td>{row.updatedAt}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -165,17 +141,17 @@ export default function DashboardPage() {
         <article className="rounded-2xl border border-base-300/60 bg-base-100/90 p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">服务状态 / Service Health</h2>
-            <span className="badge badge-info badge-sm">Real-time</span>
+            <span className="badge badge-info badge-sm">Back-end Linked</span>
           </div>
           <ul className="space-y-3">
-            {systemHealth.map((service) => (
+            {data.serviceHealth.map((service) => (
               <li
                 key={service.name}
                 className="flex items-center justify-between rounded-xl border border-base-300/60 bg-base-100 p-3"
               >
                 <div>
                   <p className="font-medium">{service.name}</p>
-                  <p className="text-xs text-base-content/60">延迟 / Latency: {service.latency}</p>
+                  <p className="text-xs text-base-content/60">状态来源: 后端 API 可达性</p>
                 </div>
                 <span className={statusBadge(service.status)}>{service.status}</span>
               </li>

@@ -276,6 +276,8 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
                 <input
                   type="checkbox"
                   className="checkbox checkbox-xs"
+                  aria-label="全选图片"
+                  title="全选图片"
                   checked={localRows.length > 0 && selectedIds.length === localRows.length}
                   onChange={(event) => toggleSelectAll(event.target.checked)}
                 />
@@ -297,6 +299,8 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
                   <input
                     type="checkbox"
                     className="checkbox checkbox-xs"
+                    aria-label={`选择图片 ${row.id}`}
+                    title={`选择图片 ${row.id}`}
                     checked={selectedIds.includes(row.id)}
                     onChange={(event) => toggleSelect(row.id, event.target.checked)}
                   />
