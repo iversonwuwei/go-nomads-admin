@@ -3,8 +3,8 @@
 import AuthScene from "@/app/components/auth/auth-scene";
 import { loginWithEmail } from "@/app/lib/auth-client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 
 function isValidEmail(value: string) {
   return /^\S+@\S+\.\S+$/.test(value);
@@ -12,15 +12,9 @@ function isValidEmail(value: string) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [nextPath, setNextPath] = useState("/dashboard");
-  const [forbidden, setForbidden] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    setNextPath(params.get("next") || "/dashboard");
-    setForbidden(params.get("forbidden") === "1");
-  }, []);
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/dashboard";
+  const forbidden = searchParams.get("forbidden") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -100,7 +94,6 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            autoFocus
             aria-describedby={error ? errorId : undefined}
           />
           {emailInvalid ? <span className="mt-2 text-xs text-red-600">请输入有效邮箱地址。</span> : null}
