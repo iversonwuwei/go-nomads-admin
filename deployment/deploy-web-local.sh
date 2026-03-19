@@ -2,12 +2,13 @@
 
 # ============================================================
 # Go-Nomads Admin - Local Docker Deploy (compose)
-# Usage: bash deploy-web-local.sh [--skip-build] [--force-recreate] [--help]
+# Usage: bash deploy-web-local.sh [--skip-build] [--force-recreate] [--use-mirror] [--help]
 # ============================================================
 set -euo pipefail
 
 SKIP_BUILD=false
 FORCE_RECREATE=false
+USE_MIRROR=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -19,6 +20,10 @@ while [[ $# -gt 0 ]]; do
       FORCE_RECREATE=true
       shift
       ;;
+    --use-mirror)
+      USE_MIRROR=true
+      shift
+      ;;
     --help|-h)
       cat <<'EOF'
 Usage: ./deploy-web-local.sh [options]
@@ -26,6 +31,7 @@ Usage: ./deploy-web-local.sh [options]
 Options:
   --skip-build        Do not rebuild the image, reuse existing local image
   --force-recreate    Force container recreation even if config unchanged
+  --use-mirror        Force domestic mirror for Node base image and npm registry
   --help, -h          Show this help
 EOF
       exit 0
@@ -40,6 +46,12 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.yml"
+MIRROR_PREFIX="${MIRROR_PREFIX:-docker.1ms.run}"
+
+if [[ "$USE_MIRROR" == true ]]; then
+  export NODE_IMAGE="${MIRROR_PREFIX}/library/node:20.18.0-alpine"
+  export NPM_REGISTRY_SERVER="${NPM_REGISTRY_SERVER:-https://registry.npmmirror.com}"
+fi
 
 # select docker or podman
 select_runtime() {
@@ -72,6 +84,11 @@ cd "$ROOT_DIR"
 
 echo "Using compose: $COMPOSE_CMD"
 echo "Project root: $ROOT_DIR"
+if [[ "$USE_MIRROR" == true ]]; then
+  echo "Mirror mode: enabled"
+  echo "NODE_IMAGE: ${NODE_IMAGE}"
+  echo "NPM_REGISTRY_SERVER: ${NPM_REGISTRY_SERVER}"
+fi
 
 cmd=( $COMPOSE_CMD -f "$COMPOSE_FILE" up -d )
 [[ "$SKIP_BUILD" == true ]] || cmd+=(--build)

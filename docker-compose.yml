@@ -4,6 +4,7 @@ services:
       context: .
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:20.18.0-alpine}
+        NPM_REGISTRY_SERVER: ${NPM_REGISTRY_SERVER:-https://registry.yarnpkg.com}
     image: go-nomads-admin:latest
     container_name: go-nomads-admin
     environment:

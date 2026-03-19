@@ -1,4 +1,5 @@
 ARG NODE_IMAGE=node:20.18.0-alpine
+ARG NPM_REGISTRY_SERVER=https://registry.yarnpkg.com
 
 FROM ${NODE_IMAGE} AS base
 WORKDIR /app
@@ -16,7 +17,7 @@ COPY .yarn ./.yarn
 # Activate the project-pinned Yarn (Corepack) to match packageManager
 RUN corepack enable && corepack prepare yarn@4.5.1 --activate
 # 设置 yarn 网络超时和重试，使用官方源（Docker 容器内更稳定）
-RUN yarn config set npmRegistryServer https://registry.yarnpkg.com && \
+RUN yarn config set npmRegistryServer ${NPM_REGISTRY_SERVER} && \
 	yarn install --immutable --network-timeout 600000
 
 FROM base AS builder
