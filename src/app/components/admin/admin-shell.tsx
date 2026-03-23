@@ -1,11 +1,14 @@
 "use client";
 
-import { fetchCurrentAdmin, logoutAdmin, type AuthUser } from "@/app/lib/auth-client";
-import { Bars3Icon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { type AuthUser, fetchCurrentAdmin, logoutAdmin } from "@/app/lib/auth-client";
+import {
+  Bars3Icon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { navItems } from "./nav-config";
+import { type NavItem, navItems } from "./nav-config";
 
 type AdminShellProps = {
   children: React.ReactNode;
@@ -112,31 +115,45 @@ export default function AdminShell({ children }: AdminShellProps) {
               <p className="mt-1 text-xs text-base-content/60">Go Nomads Control Plane</p>
             </Link>
 
-            <nav className="mt-4 space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${
-                      active
-                        ? "bg-primary text-primary-content"
-                        : "hover:bg-base-200 text-base-content"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>
-                      <span className="block text-sm font-semibold leading-4">{item.title}</span>
-                      <span className={`block text-xs ${active ? "text-primary-content/80" : "text-base-content/60"}`}>
-                        {item.subtitle}
-                      </span>
-                    </span>
-                  </Link>
-                );
-              })}
+            <nav className="mt-4 space-y-4">
+              {Object.entries(
+                navItems.reduce<Record<string, NavItem[]>>((acc, item) => {
+                  const group = item.group;
+                  if (!acc[group]) acc[group] = [];
+                  acc[group].push(item);
+                  return acc;
+                }, {}),
+              ).map(([group, items]) => (
+                <div key={group}>
+                  <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-base-content/40">
+                    {group}
+                  </p>
+                  <div className="space-y-0.5">
+                    {items.map((item) => {
+                      const Icon = item.icon;
+                      const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2 transition ${active
+                            ? "bg-primary text-primary-content"
+                            : "hover:bg-base-200 text-base-content"
+                            }`}
+                        >
+                          <Icon className="h-4.5 w-4.5" />
+                          <span>
+                            <span className="block text-sm font-semibold leading-4">{item.title}</span>
+                            <span className={`block text-[11px] ${active ? "text-primary-content/80" : "text-base-content/50"}`}>
+                              {item.subtitle}
+                            </span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
           </div>
         </aside>

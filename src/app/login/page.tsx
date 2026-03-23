@@ -4,13 +4,21 @@ import AuthScene from "@/app/components/auth/auth-scene";
 import { loginWithEmail } from "@/app/lib/auth-client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 
 function isValidEmail(value: string) {
   return /^\S+@\S+\.\S+$/.test(value);
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/dashboard";
