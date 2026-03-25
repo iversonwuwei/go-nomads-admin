@@ -1,33 +1,38 @@
 # TOOLS.md - Local Notes
 
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+## 开发环境
 
-## What Goes Here
+- 包管理: Yarn 4.5.1
+- 端口: dev 3002, Docker 3002
+- Lint/Format: Biome 2.x
+- Node.js: v20+
 
-Things like:
+## 常用命令
 
-- Camera names and locations
-- SSH hosts and aliases
-- Preferred voices for TTS
-- Speaker/room names
-- Device nicknames
-- Anything environment-specific
+```bash
+# 开发
+yarn dev
 
-## Examples
+# 构建
+yarn build
 
-```markdown
-### Cameras
+# Biome 检查
+yarn biome check src/
 
-- living-room → Main area, 180° wide angle
-- front-door → Entrance, motion-triggered
+# Docker 构建
+docker compose up --build
+```
 
-### SSH
+## 认证
 
-- home-server → 192.168.1.100, user: admin
+- JWT Cookie: `admin_access_token`
+- 角色解析: 标准 `role` + .NET Claims 格式
+- 公开路径: `/login`, `/register`, `/forgot-password`, `/privacy`, `/api/*`
 
-### TTS
+## 数据可视化
 
-- Preferred voice: "Nova" (warm, slightly British)
+- 图表库: @tremor/react
+- 组件: BarChart, LineChart, DonutChart, Card, Metric, Table
 - Default speaker: Kitchen HomePod
 ```
 

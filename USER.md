@@ -1,16 +1,17 @@
 # USER.md - About Your Human
 
-_Learn about the person you're helping. Update this as you go._
-
-- **Name:**
-- **What to call them:**
-- **Pronouns:** _(optional)_
-- **Timezone:**
-- **Notes:**
+- **Name:** Walden
+- **What to call them:** Walden
+- **Pronouns:** he/him
+- **Timezone:** Asia/Shanghai (UTC+8)
+- **Notes:** Go-Nomads 全栈开发者，独立开发者
 
 ## Context
 
-_(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)_
+- 正在建设 Go-Nomads（行途）—— 数字游民城市探索平台
+- Admin 后台用于平台管理和数据可视化
+- 关注数据安全和角色权限控制
+- 偏好 Tremor 图表组件做数据展示
 
 ---
 
