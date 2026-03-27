@@ -34,7 +34,7 @@ export type ForgotPasswordResetPayload = {
 };
 
 export type LoginResult = {
-  accessToken: string;
+  accessToken?: string;
   refreshToken?: string;
   expiresIn?: number;
   user?: AuthUser;
@@ -59,7 +59,7 @@ function extractLoginResult(payload: Record<string, unknown>): LoginResult {
   const data = (payload.data ?? {}) as Record<string, unknown>;
 
   const accessToken =
-    String(data.accessToken ?? payload.accessToken ?? "") || "";
+    String(data.accessToken ?? payload.accessToken ?? "") || undefined;
 
   return {
     accessToken,
@@ -69,23 +69,14 @@ function extractLoginResult(payload: Record<string, unknown>): LoginResult {
   };
 }
 
-function persistAuthState(result: LoginResult) {
+function clearLegacyAuthState() {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+  window.localStorage.removeItem(STORAGE_KEY);
 }
 
 export function readAuthState(): LoginResult | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as LoginResult;
-    if (!parsed.accessToken) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  clearLegacyAuthState();
+  return null;
 }
 
 export async function loginWithEmail(payload: LoginPayload): Promise<AuthEnvelope<LoginResult>> {
@@ -108,16 +99,7 @@ export async function loginWithEmail(payload: LoginPayload): Promise<AuthEnvelop
   }
 
   const result = extractLoginResult(normalized.data);
-  if (!result.accessToken) {
-    return {
-      success: false,
-      message: "登录成功但未返回 accessToken",
-      data: null,
-      errors: normalized.errors,
-    };
-  }
-
-  persistAuthState(result);
+  clearLegacyAuthState();
   return { success: true, message: normalized.message, data: result, errors: normalized.errors };
 }
 
@@ -158,9 +140,7 @@ export async function registerUser(payload: RegisterPayload): Promise<AuthEnvelo
   }
 
   const result = extractLoginResult(normalized.data);
-  if (result.accessToken) {
-    persistAuthState(result);
-  }
+  clearLegacyAuthState();
 
   return { success: true, message: normalized.message, data: result, errors: normalized.errors };
 }
@@ -204,7 +184,7 @@ export async function resetForgottenPassword(payload: ForgotPasswordResetPayload
 export async function logoutAdmin() {
   await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem(STORAGE_KEY);
+    clearLegacyAuthState();
     window.sessionStorage.removeItem("admin-login");
   }
 }

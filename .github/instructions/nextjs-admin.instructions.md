@@ -4,6 +4,12 @@ applyTo: "src/**/*.{ts,tsx}"
 
 # Next.js 管理后台开发规范
 
+## Harness Engineering 基线
+- 本工程默认遵循根目录 `HARNESS_ENGINEERING_CHECKLIST.md`。
+- 交付说明默认遵循根目录 `HARNESS_DELIVERY_TEMPLATE.md`。
+- 开发前先明确权限边界、后台数据契约、失败路径与验证方式。
+- 后台改动必须同时检查鉴权、空态/错误态、操作审计可观测性，以及发布回滚影响。
+
 ## 技术栈
 与 go-nomads-web 相同，额外包含：
 - @tremor/react（数据可视化、图表、KPI 卡片）
