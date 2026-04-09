@@ -1,6 +1,7 @@
 "use client";
 
-import { fetchTravelPlanById, type TravelPlanDetailDto } from "@/app/lib/admin-api";
+import { UserIdentityInfoRow } from "@/app/components/admin/user-identity-link";
+import { fetchTravelPlanById, type TravelPlanDetailDto, updateTravelPlanStatus } from "@/app/lib/admin-api";
 import {
     ChevronRightIcon,
     HomeIcon,
@@ -38,10 +39,55 @@ function Placeholder({ text }: { text: string }) {
 	);
 }
 
+function renderPrimitive(value: unknown) {
+	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+		return String(value);
+	}
+	return null;
+}
+
+function renderCollection(value: unknown, emptyText: string) {
+	if (value == null) return <Placeholder text={emptyText} />;
+
+	if (Array.isArray(value)) {
+		if (value.length === 0) return <Placeholder text={emptyText} />;
+
+		const allPrimitive = value.every((item) => renderPrimitive(item) !== null);
+		if (allPrimitive) {
+			return (
+				<ul className="list-inside list-disc space-y-2 text-sm text-base-content/80">
+					{value.map((item, index) => <li key={`${index}-${String(item)}`}>{renderPrimitive(item)}</li>)}
+				</ul>
+			);
+		}
+
+		return (
+			<div className="space-y-3">
+				{value.map((item, index) => (
+					<div key={typeof item === "object" ? JSON.stringify(item) : `${index}-${String(item)}`} className="rounded-2xl border border-base-300/50 bg-base-200/20 p-4">
+						<pre className="whitespace-pre-wrap break-words text-xs text-base-content/75">{JSON.stringify(item, null, 2)}</pre>
+					</div>
+				))}
+			</div>
+		);
+	}
+
+	if (typeof value === "object") {
+		return (
+			<div className="rounded-2xl border border-base-300/50 bg-base-200/20 p-4">
+				<pre className="whitespace-pre-wrap break-words text-xs text-base-content/75">{JSON.stringify(value, null, 2)}</pre>
+			</div>
+		);
+	}
+
+	return <Placeholder text={emptyText} />;
+}
+
 export default function TravelPlanDetailPage() {
 	const { id } = useParams<{ id: string }>();
 	const [plan, setPlan] = useState<TravelPlanDetailDto | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 	const [tab, setTab] = useState<TabKey>("info");
 
 	useEffect(() => {
@@ -54,6 +100,14 @@ export default function TravelPlanDetailPage() {
 		});
 		return () => { active = false; };
 	}, [id]);
+
+	async function handleStatusChange(nextStatus: "planning" | "confirmed" | "completed") {
+		if (!id || !plan) return;
+		setUpdatingStatus(nextStatus);
+		const res = await updateTravelPlanStatus(id, nextStatus);
+		if (res.ok && res.data) setPlan(res.data);
+		setUpdatingStatus(null);
+	}
 
 	if (loading) {
 		return (
@@ -95,9 +149,20 @@ export default function TravelPlanDetailPage() {
 					</p>
 				</div>
 				<div className="ml-auto">
-					<span className={`badge ${plan.status === "completed" ? "badge-success" : plan.status === "confirmed" ? "badge-info" : "badge-warning"}`}>
-						{plan.status || "—"}
-					</span>
+					<div className="flex flex-wrap items-center justify-end gap-2">
+						<span className={`badge ${plan.status === "completed" ? "badge-success" : plan.status === "confirmed" ? "badge-info" : "badge-warning"}`}>
+							{plan.status || "—"}
+						</span>
+						<button type="button" className="btn btn-xs btn-outline" disabled={updatingStatus !== null || plan.status === "planning"} onClick={() => handleStatusChange("planning")}>
+							{updatingStatus === "planning" ? "处理中..." : "设为规划中"}
+						</button>
+						<button type="button" className="btn btn-xs btn-outline" disabled={updatingStatus !== null || plan.status === "confirmed"} onClick={() => handleStatusChange("confirmed")}>
+							{updatingStatus === "confirmed" ? "处理中..." : "设为已确认"}
+						</button>
+						<button type="button" className="btn btn-xs btn-outline" disabled={updatingStatus !== null || plan.status === "completed"} onClick={() => handleStatusChange("completed")}>
+							{updatingStatus === "completed" ? "处理中..." : "设为已完成"}
+						</button>
+					</div>
 				</div>
 			</div>
 
@@ -120,7 +185,7 @@ export default function TravelPlanDetailPage() {
 			{/* Tab Content */}
 			<div className="rounded-2xl border border-base-300/60 bg-base-100 p-6">
 				{tab === "info" && (
-					<div className="max-w-lg">
+					<div className="max-w-2xl">
 						<InfoRow label="目的地" value={plan.cityName || plan.destination} />
 						<InfoRow label="天数" value={plan.days} />
 						<InfoRow label="预算等级" value={plan.budgetLevel} />
@@ -128,7 +193,7 @@ export default function TravelPlanDetailPage() {
 						<InfoRow label="出发城市" value={plan.departureCity} />
 						<InfoRow label="出发日期" value={plan.departureDate?.slice(0, 10)} />
 						<InfoRow label="状态" value={plan.status} />
-						<InfoRow label="用户" value={plan.userName} />
+						<UserIdentityInfoRow label="用户" userId={plan.userId} userName={plan.userName} />
 						<InfoRow label="完成度" value={plan.completionRate != null ? `${plan.completionRate}%` : undefined} />
 						{plan.interests && plan.interests.length > 0 && (
 							<div className="mt-4 flex flex-wrap gap-1.5">
@@ -139,10 +204,10 @@ export default function TravelPlanDetailPage() {
 						)}
 					</div>
 				)}
-				{tab === "itinerary" && <Placeholder text="每日行程数据（API 返回 dailyItinerary 后渲染）" />}
-				{tab === "attractions" && <Placeholder text="景点推荐数据（API 返回 attractions 后渲染）" />}
-				{tab === "restaurants" && <Placeholder text="餐厅推荐数据（API 返回 restaurants 后渲染）" />}
-				{tab === "budget" && <Placeholder text="预算数据（API 返回 budget 后渲染）" />}
+				{tab === "itinerary" && renderCollection(plan.dailyItinerary, "暂无每日行程")}
+				{tab === "attractions" && renderCollection(plan.attractions, "暂无景点推荐")}
+				{tab === "restaurants" && renderCollection(plan.restaurants, "暂无餐厅推荐")}
+				{tab === "budget" && renderCollection(plan.budget, "暂无预算信息")}
 				{tab === "tips" && (
 					plan.tips && plan.tips.length > 0 ? (
 						<ul className="list-inside list-disc space-y-2 text-sm text-base-content/80">

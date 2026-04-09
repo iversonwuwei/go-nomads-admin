@@ -84,19 +84,36 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
   }
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-xl border border-base-300/60 bg-base-100 p-3 text-sm text-base-content/70">
-        当前列表共 <span className="font-semibold text-base-content">{rows.length}</span> 条举报，待闭环
-        <span className="mx-1 font-semibold text-base-content">{totalOpen}</span>条。
+    <section className="control-area">
+      <div className="control-area-header">
+        <p className="control-area-label">Area 03</p>
+        <div className="control-area-title-row">
+          <div>
+            <h2 className="control-area-title">举报处置区</h2>
+            <p className="control-area-muted">这一块聚焦举报列表本身、处置动作和本地时间线，帮助管理员完成完整的治理闭环。</p>
+          </div>
+        </div>
       </div>
+      <div className="control-area-body space-y-4">
+        <div className="control-focus-bar">
+          <div className="control-focus-item">
+            <span>Focus</span>
+            <strong>当前 {rows.length} 条案件，待闭环 {totalOpen} 条</strong>
+          </div>
+          <div className="control-focus-item">
+            <span>Boundary</span>
+            <strong>此区只做处置，不负责详情查询</strong>
+          </div>
+        </div>
 
-      <article className="overflow-x-auto rounded-2xl border border-base-300/60 bg-base-100 p-2 shadow-sm">
+        <article className="control-table-shell">
+          <div className="control-table-wrap">
         <table className="table table-zebra">
           <thead>
             <tr>
               <th>举报单号</th>
               <th>对象类型</th>
-              <th>对象 ID</th>
+                  <th>对象</th>
               <th>原因</th>
               <th>举报人</th>
               <th>状态</th>
@@ -112,20 +129,20 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
                 <td>
                   {getTargetHref(row) ? (
                     <a href={getTargetHref(row)} className="link link-primary">
-                      {row.targetName || row.targetId || "-"}
+                      {row.targetDisplayName || row.targetName || "-"}
                     </a>
                   ) : (
-                    <span>{row.targetName || row.targetId || "-"}</span>
+                      <span>{row.targetDisplayName || row.targetName || "-"}</span>
                   )}
-                  {row.targetName && row.targetId ? (
-                    <p className="font-mono text-xs text-base-content/60">{row.targetId}</p>
+                  {row.targetSummary ? (
+                    <p className="text-xs text-base-content/60">{row.targetSummary}</p>
                   ) : null}
                 </td>
                 <td>{row.reasonLabel || row.reasonId || "-"}</td>
                 <td>
-                  <p>{row.reporterName || row.reporterId || "-"}</p>
-                  {row.reporterName && row.reporterId ? (
-                    <p className="font-mono text-xs text-base-content/60">{row.reporterId}</p>
+                  <p>{row.reporterDisplayName || row.reporterName || "-"}</p>
+                  {row.reporterSummary ? (
+                    <p className="text-xs text-base-content/60">{row.reporterSummary}</p>
                   ) : null}
                 </td>
                 <td>
@@ -155,9 +172,10 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
             ) : null}
           </tbody>
         </table>
+          </div>
       </article>
 
-      <article className="rounded-2xl border border-base-300/60 bg-base-100 p-4 shadow-sm">
+        <article className="admin-panel rounded-3xl p-4">
         <h3 className="text-sm font-semibold">处置时间线 / Action Timeline</h3>
         <div className="mt-3 space-y-2 text-sm">
           {auditTrail.length === 0 ? (
@@ -175,6 +193,7 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
           )}
         </div>
       </article>
+      </div>
     </section>
   );
 }

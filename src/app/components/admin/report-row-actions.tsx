@@ -50,19 +50,12 @@ export default function ReportRowActions({ reportId, onActionComplete }: ReportR
       return;
     }
 
-    const isDryRun = (body.message || "").toLowerCase().includes("dry-run");
     const message =
       action === "assign"
-        ? isDryRun
-          ? "已分配(模拟)"
-          : "已分配"
+        ? "已分配"
         : action === "resolve"
-          ? isDryRun
-            ? "已结案(模拟)"
-            : "已结案"
-          : isDryRun
-            ? "已驳回(模拟)"
-            : "已驳回";
+          ? "已结案"
+          : "已驳回";
     const operatedAt = body.data?.operatedAt || new Date().toISOString();
 
     setFeedback(message);

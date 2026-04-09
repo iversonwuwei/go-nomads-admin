@@ -87,7 +87,6 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
 
     const actionText = reviewAction === "approve" ? "通过" : "拒绝";
     const reviewedAt = new Date().toISOString();
-    const isDryRun = (body.message || "").toLowerCase().includes("dry-run");
 
     setLocalRows((prev) =>
       prev.map((row) => {
@@ -122,7 +121,7 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
     };
     setAuditTrail((prev) => [saved || fallback, ...prev]);
 
-    setFeedback(`已提交${actionText}${isDryRun ? "(模拟)" : ""}：${reviewTarget.id}（${reason}）`);
+    setFeedback(`已提交${actionText}：${reviewTarget.id}（${reason}）`);
     setReviewTarget(null);
     setTimeout(() => setFeedback(""), 2500);
   }
@@ -171,9 +170,7 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
           throw new Error(`HTTP ${response.status}`);
         }
 
-        const body = (await response.json().catch(() => ({}))) as {
-          message?: string;
-        };
+        await response.json().catch(() => ({}));
 
         const reviewedAt = new Date().toISOString();
         const saved = await writeAuditEvent({
@@ -199,14 +196,13 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
           rowId: row.id,
           audit: saved || fallback,
           reviewedAt,
-          isDryRun: (body.message || "").toLowerCase().includes("dry-run"),
         };
       }),
     );
 
     setSubmitting(false);
 
-    const successRows: { rowId: string; audit: AdminAuditEvent; reviewedAt: string; isDryRun: boolean }[] = [];
+    const successRows: { rowId: string; audit: AdminAuditEvent; reviewedAt: string }[] = [];
     for (const item of settled) {
       if (item.status === "fulfilled") successRows.push(item.value);
     }
@@ -227,9 +223,8 @@ export default function CityPhotoTable({ rows, cityId }: CityPhotoTableProps) {
     }
 
     setSelectedIds((prev) => prev.filter((id) => !successIds.includes(id)));
-    const hasDryRun = successRows.some((x) => x.isDryRun);
     setFeedback(
-      `批量${action === "approve" ? "通过" : "拒绝"}${hasDryRun ? "(模拟)" : ""}完成：成功 ${successIds.length}/${selectedIds.length}`,
+      `批量${action === "approve" ? "通过" : "拒绝"}完成：成功 ${successIds.length}/${selectedIds.length}`,
     );
     setTimeout(() => setFeedback(""), 3000);
   }

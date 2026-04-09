@@ -1,9 +1,18 @@
 "use client";
 
-import { type AiSessionDto, deleteAiSession, fetchAiSessions } from "@/app/lib/admin-api";
+import AdminTable from "@/app/components/admin/admin-table";
 import {
-    ChevronRightIcon,
-    HomeIcon,
+	AdminToolbarSlot,
+	AdminWorkspace,
+	AdminWorkspaceBreadcrumb,
+	AdminWorkspaceHero,
+	AdminWorkspaceSection,
+	AdminWorkspaceToolbar,
+} from "@/app/components/admin/system-workspace";
+import { UserIdentityLink } from "@/app/components/admin/user-identity-link";
+import { type AiSessionDto, deleteAiSession, fetchAiSessions } from "@/app/lib/admin-api";
+import { getUserDisplayInitial } from "@/app/lib/user-display";
+import {
     MagnifyingGlassIcon,
     SparklesIcon,
     TrashIcon,
@@ -29,6 +38,16 @@ export default function AiChatPage() {
 		return () => { active = false; };
 	}, [page, pageSize, search]);
 
+	const visibleSessions = sessions.filter((session) => {
+		if (!search.trim()) return true;
+		const query = search.toLowerCase();
+		return [session.title, session.userName, session.userId, session.model, session.status]
+			.filter(Boolean)
+			.some((value) => String(value).toLowerCase().includes(query));
+	});
+
+	const displayedTotal = search.trim() ? visibleSessions.length : total;
+
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	async function reload() {
@@ -45,90 +64,95 @@ export default function AiChatPage() {
 	}
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center gap-1.5 text-xs text-base-content/50">
-				<Link href="/dashboard" className="hover:text-primary"><HomeIcon className="h-3.5 w-3.5" /></Link>
-				<ChevronRightIcon className="h-3 w-3" />
-				<span className="text-base-content">AI 对话</span>
-			</div>
+		<AdminWorkspace>
+			<AdminWorkspaceBreadcrumb items={[{ label: "数据中心", href: "/dashboard" }, { label: "AI 对话" }]} />
+			<AdminWorkspaceHero
+				eyebrow="AI Interaction"
+				title="AI 对话"
+				description="统一查看用户、模型、Token 消耗和会话标题，让运营与风控能在一张表里完成筛查与跳转。"
+				stats={[
+					{ label: "Visible Sessions", value: String(displayedTotal), hint: "当前视图中的 AI 会话量" },
+					{ label: "Current Page", value: `${page}/${totalPages}`, hint: "分页浏览位置" },
+					{ label: "Search", value: search.trim() ? "已启用" : "未启用", hint: "当前是否使用检索" },
+				]}
+				actions={
+					<div className="flex items-center gap-2 rounded-2xl bg-primary/10 px-4 py-3 text-sm text-primary">
+						<SparklesIcon className="h-5 w-5" />
+						<span>模型会话治理</span>
+					</div>
+				}
+			/>
 
-			<div className="flex items-center gap-3">
-				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-					<SparklesIcon className="h-5 w-5 text-primary" />
-				</div>
-				<div>
-					<h1 className="text-xl font-bold">AI 对话</h1>
-					<p className="text-xs text-base-content/50">AI Chat Sessions — 共 {total} 条</p>
-				</div>
-			</div>
+			<AdminWorkspaceSection title="检索入口" description="优先缩小会话范围，再进入详情页查看消息上下文或执行删除。">
+				<AdminWorkspaceToolbar>
+					<AdminToolbarSlot label="搜索会话标题、用户或模型" grow>
+						<MagnifyingGlassIcon className="admin-toolbar-search-icon h-4 w-4" />
+						<input
+							placeholder="搜索标题、用户 ID、用户名或模型..."
+							value={search}
+							onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+						/>
+					</AdminToolbarSlot>
+				</AdminWorkspaceToolbar>
+			</AdminWorkspaceSection>
 
-			{/* Search */}
-			<div className="flex items-center gap-2 rounded-2xl border border-base-300/60 bg-base-100 px-4 py-3">
-				<MagnifyingGlassIcon className="h-4 w-4 text-base-content/40" />
-				<input
-					className="w-full bg-transparent text-sm outline-none"
-					placeholder="搜索用户…"
-					value={search}
-					onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-				/>
-			</div>
-
-			{/* Table */}
-			<div className="overflow-x-auto rounded-2xl border border-base-300/60 bg-base-100">
-				<table className="table table-sm">
-					<thead>
-						<tr className="border-b border-base-300/50 text-xs uppercase tracking-wider text-base-content/50">
-							<th>用户</th>
-							<th>最新消息</th>
-							<th>模型</th>
-							<th>Token</th>
-							<th>时间</th>
-							<th className="text-right">操作</th>
+			<AdminWorkspaceSection title="会话结果" description="把用户身份、模型选择与 Token 成本放进统一的产品表格，降低查看与操作跳转成本。">
+				<AdminTable
+					headers={["用户", "会话标题", "模型", "Token", "时间", "操作"]}
+					hasRows={!loading && visibleSessions.length > 0}
+					colSpan={6}
+					emptyMessage={loading ? "加载中…" : "暂无 AI 会话"}
+					meta={
+						<>
+							<div>
+								<span className="admin-table-meta-label">AI Session Matrix</span>
+								<span className="admin-table-meta-value">{visibleSessions.length}</span>
+							</div>
+							<p className="admin-table-meta-copy">把 AI 会话页和其他治理页统一成相同的 workspace 与 table 结构，减少界面认知切换。</p>
+						</>
+					}
+				>
+					{visibleSessions.map((s) => (
+						<tr key={s.id}>
+							<td>
+								<div className="admin-entity-inline">
+									<div className="admin-entity-avatar">{getUserDisplayInitial(s.userName, s.userId)}</div>
+									<div className="admin-entity-copy">
+										<UserIdentityLink userId={s.userId} userName={s.userName} />
+										<span className="admin-entity-subtitle">{s.status || "active"}</span>
+									</div>
+								</div>
+							</td>
+							<td className="max-w-xs text-base-content/75">
+								<Link href={`/ai-chat/${s.id}`} className="font-medium text-primary hover:underline">
+									{s.title || s.lastMessage || "—"}
+								</Link>
+							</td>
+							<td>{s.model ? <span className="badge badge-sm badge-outline">{s.model}</span> : "—"}</td>
+							<td className="tabular-nums text-sm">{s.tokenUsage?.toLocaleString() ?? "—"}</td>
+							<td className="text-xs text-base-content/55">{(s.lastMessageAt || s.createdAt)?.slice(0, 16).replace("T", " ") || "—"}</td>
+							<td>
+								<div className="flex items-center justify-end gap-1">
+									<Link href={`/ai-chat/${s.id}`} className="btn btn-ghost btn-xs rounded-xl">详情</Link>
+									<button type="button" className="btn btn-ghost btn-xs rounded-xl text-error" onClick={() => handleDelete(s.id)}>
+										<TrashIcon className="h-4 w-4" />
+									</button>
+								</div>
+							</td>
 						</tr>
-					</thead>
-					<tbody>
-						{loading ? (
-							<tr><td colSpan={6} className="py-12 text-center text-base-content/30">加载中…</td></tr>
-						) : sessions.length === 0 ? (
-							<tr><td colSpan={6} className="py-12 text-center text-base-content/30">暂无数据</td></tr>
-						) : (
-							sessions.map((s) => (
-								<tr key={s.id} className="hover:bg-base-200/50">
-									<td>
-										<div className="flex items-center gap-2">
-											<div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-												{(s.userName || "?")[0]}
-											</div>
-											<span className="font-medium">{s.userName || "—"}</span>
-										</div>
-									</td>
-									<td className="max-w-xs truncate text-base-content/70">{s.lastMessage || "—"}</td>
-									<td>
-										<span className="badge badge-sm badge-outline">{s.model || "—"}</span>
-									</td>
-									<td className="tabular-nums">{s.tokenUsage?.toLocaleString() ?? "—"}</td>
-									<td className="text-xs text-base-content/50">{s.createdAt?.slice(0, 16).replace("T", " ") || "—"}</td>
-									<td className="text-right">
-										<button type="button" className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(s.id)}>
-											<TrashIcon className="h-4 w-4" />
-										</button>
-									</td>
-								</tr>
-							))
-						)}
-					</tbody>
-				</table>
-			</div>
+					))}
+				</AdminTable>
+			</AdminWorkspaceSection>
 
-			{totalPages > 1 && (
-				<div className="flex items-center justify-between">
-					<p className="text-xs text-base-content/50">第 {page}/{totalPages} 页，共 {total} 条</p>
+			{totalPages > 1 ? (
+				<div className="admin-pagination-shell">
+					<p className="admin-pagination-copy">第 {page}/{totalPages} 页，共 {total} 条</p>
 					<div className="join">
 						<button type="button" className="join-item btn btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一页</button>
 						<button type="button" className="join-item btn btn-sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>下一页</button>
 					</div>
 				</div>
-			)}
-		</div>
+			) : null}
+		</AdminWorkspace>
 	);
 }

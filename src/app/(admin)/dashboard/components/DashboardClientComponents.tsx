@@ -65,16 +65,18 @@ export function KpiCard({
   const isPositive = percentageChange >= 0;
 
   return (
-    <Card className="ring-0">
+    <Card className="dashboard-kpi-card ring-0 p-5">
       <Flex alignItems="start">
         <div className="truncate">
-          <Text>{title}</Text>
-          <Metric className="truncate">{valueNum.toLocaleString()}</Metric>
+          <Text className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</Text>
+          <Metric className="mt-2 truncate text-slate-950">{valueNum.toLocaleString()}</Metric>
         </div>
-        <Icon icon={IconComponent} size="lg" variant="light" tooltip={title} />
+        <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
+          <Icon icon={IconComponent} size="lg" variant="simple" tooltip={title} />
+        </div>
       </Flex>
-      <Flex className="mt-4 space-x-2">
-        <Text className="truncate">
+      <Flex className="mt-5 items-center justify-between gap-3">
+        <Text className="truncate text-slate-600">
           <span
             className={`rounded-full px-2 py-1 text-xs font-medium ${
               isPositive
@@ -84,9 +86,9 @@ export function KpiCard({
           >
             {isPositive ? "▲" : "▼"} {percentageChange.toFixed(1)}%
           </span>{" "}
-          vs last 30 days
+          过去 30 天
         </Text>
-        <Text className="truncate">{metricNum.toLocaleString()}</Text>
+        <Text className="truncate font-semibold text-slate-900">{metricNum.toLocaleString()}</Text>
       </Flex>
     </Card>
   );
@@ -113,8 +115,17 @@ const valueFormatter = (number: number) => {
 
 export function UsersChart() {
   return (
-    <Card className="ring-0">
-      <Title>User Growth (2023)</Title>
+    <Card className="dashboard-chart-card ring-0 p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <Title>User Growth Signal</Title>
+          <Text className="mt-1">用增长趋势帮助运营判断 App 的激活和召回节奏。</Text>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="control-chip"><strong>New Users</strong> Acquisition</span>
+          <span className="control-chip"><strong>Active Users</strong> Retention</span>
+        </div>
+      </div>
       <AreaChart
         className="mt-4 h-72"
         data={chartdata}

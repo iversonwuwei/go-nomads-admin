@@ -24,15 +24,42 @@ export type RoleDto = {
   name: string;
   description?: string;
   userCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type UserDto = {
   id: string;
   name?: string;
   email?: string;
+  phone?: string;
   role?: string;
   avatarUrl?: string;
+  bio?: string;
   createdAt?: string;
+  updatedAt?: string;
+  membership?: UserMembershipSummary;
+  stats?: UserTravelStatsSummary;
+};
+
+export type UserMembershipSummary = {
+  levelName?: string;
+  startDate?: string;
+  expiryDate?: string;
+  autoRenew?: boolean;
+  aiUsageThisMonth?: number;
+  aiUsageLimit?: number;
+  isActive?: boolean;
+  remainingDays?: number;
+  canUseAI?: boolean;
+  canApplyModerator?: boolean;
+};
+
+export type UserTravelStatsSummary = {
+  countriesVisited?: number;
+  citiesVisited?: number;
+  totalDays?: number;
+  totalTrips?: number;
 };
 
 export type Paginated<T> = {
@@ -50,6 +77,10 @@ export type CityPhotoDto = {
   imageUrl?: string;
   description?: string;
   locationNote?: string;
+  moderationStatus?: "pending" | "approved" | "rejected";
+  moderationReason?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
   createdAt?: string;
 };
 
@@ -57,9 +88,13 @@ export type ReportDto = {
   id: string;
   reporterId?: string;
   reporterName?: string;
+  reporterDisplayName?: string;
+  reporterSummary?: string;
   contentType?: string;
   targetId?: string;
   targetName?: string;
+  targetDisplayName?: string;
+  targetSummary?: string;
   reasonId?: string;
   reasonLabel?: string;
   status?: string;
@@ -217,6 +252,16 @@ function toNumberOrUndefined(value: unknown): number | undefined {
   return undefined;
 }
 
+function toStringOrJson(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value == null) return undefined;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 function toPagedDicts(raw: unknown, fallbackPage = 1, fallbackPageSize = 10): Paginated<Dict> {
   const payload = (raw ?? {}) as Dict;
   const itemsRaw = (readField<unknown[]>(payload, "items", "Items") ?? []) as unknown[];
@@ -247,10 +292,62 @@ export async function fetchRoles() {
       id: id || name,
       name,
       description: readField<string>(row, "description", "Description") || "",
+      userCount: toNumberOrUndefined(readField(row, "userCount", "UserCount")),
+      createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
+      updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || "",
     });
   }
 
   return { ...res, data: roles };
+}
+
+export async function createRole(body: { name: string; description?: string }) {
+  const res = await apiPost<unknown>("/roles", body);
+  if (!res.ok || !res.data) return { ...res, data: null as RoleDto | null };
+
+  const row = (res.data ?? {}) as Dict;
+  return {
+    ...res,
+    data: {
+      id: String(readField<string | number>(row, "id", "Id") ?? ""),
+      name: readField<string>(row, "name", "Name") || "",
+      description: readField<string>(row, "description", "Description") || "",
+      userCount: toNumberOrUndefined(readField(row, "userCount", "UserCount")),
+      createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
+      updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || "",
+    } satisfies RoleDto,
+  };
+}
+
+export async function updateRole(roleId: string, body: { name: string; description?: string }) {
+  const res = await apiPut<unknown>(`/roles/${encodeURIComponent(roleId)}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null as RoleDto | null };
+
+  const row = (res.data ?? {}) as Dict;
+  return {
+    ...res,
+    data: {
+      id: String(readField<string | number>(row, "id", "Id") ?? roleId),
+      name: readField<string>(row, "name", "Name") || "",
+      description: readField<string>(row, "description", "Description") || "",
+      userCount: toNumberOrUndefined(readField(row, "userCount", "UserCount")),
+      createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
+      updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || "",
+    } satisfies RoleDto,
+  };
+}
+
+export async function deleteRole(roleId: string) {
+  return apiDelete<null>(`/roles/${encodeURIComponent(roleId)}`);
+}
+
+export async function fetchRoleUsers(roleId: string) {
+  const res = await apiGet<unknown[]>(`/roles/${encodeURIComponent(roleId)}/users`);
+  const rows = Array.isArray(res.data) ? res.data : [];
+  return {
+    ...res,
+    data: rows.map((row) => mapUser((row ?? {}) as Dict)).filter((user) => Boolean(user.id)),
+  } satisfies ApiResult<UserDto[]>;
 }
 
 export async function fetchUsers(params: {
@@ -284,21 +381,9 @@ export async function fetchUsers(params: {
   const payload = (res.data ?? {}) as Dict;
 
   const itemsRaw = (readField<unknown[]>(payload, "items", "Items") ?? []) as unknown[];
-  const users: UserDto[] = [];
-  for (const x of itemsRaw) {
-    const row = (x ?? {}) as Dict;
-    const id = readField<string>(row, "id", "Id") || "";
-    if (!id) continue;
-
-    users.push({
-      id,
-      name: readField<string>(row, "name", "Name") || "",
-      email: readField<string>(row, "email", "Email") || "",
-      role: readField<string>(row, "role", "Role") || "",
-      avatarUrl: readField<string>(row, "avatarUrl", "AvatarUrl") || "",
-      createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
-    });
-  }
+  const users = itemsRaw
+    .map((x) => mapUser((x ?? {}) as Dict))
+    .filter((user) => Boolean(user.id));
 
   const paged: Paginated<UserDto> = {
     items: users,
@@ -308,6 +393,45 @@ export async function fetchUsers(params: {
   };
 
   return { ...res, data: paged };
+}
+
+function mapUser(row: Dict): UserDto {
+  const membership = (readField<Dict>(row, "membership", "Membership") ?? null) as Dict | null;
+  const stats = (readField<Dict>(row, "stats", "Stats") ?? null) as Dict | null;
+
+  return {
+    id: String(readField<string | number>(row, "id", "Id") ?? ""),
+    name: readField<string>(row, "name", "Name") || "",
+    email: readField<string>(row, "email", "Email") || "",
+    phone: readField<string>(row, "phone", "Phone") || "",
+    role: readField<string>(row, "role", "Role") || "",
+    avatarUrl: readField<string>(row, "avatarUrl", "AvatarUrl") || "",
+    bio: readField<string>(row, "bio", "Bio") || "",
+    createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
+    updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || "",
+    membership: membership
+      ? {
+          levelName: readField<string>(membership, "levelName", "LevelName"),
+          startDate: readField<string>(membership, "startDate", "StartDate"),
+          expiryDate: readField<string>(membership, "expiryDate", "ExpiryDate"),
+          autoRenew: readField<boolean>(membership, "autoRenew", "AutoRenew"),
+          aiUsageThisMonth: toNumberOrUndefined(readField(membership, "aiUsageThisMonth", "AiUsageThisMonth")),
+          aiUsageLimit: toNumberOrUndefined(readField(membership, "aiUsageLimit", "AiUsageLimit")),
+          isActive: readField<boolean>(membership, "isActive", "IsActive"),
+          remainingDays: toNumberOrUndefined(readField(membership, "remainingDays", "RemainingDays")),
+          canUseAI: readField<boolean>(membership, "canUseAI", "CanUseAI"),
+          canApplyModerator: readField<boolean>(membership, "canApplyModerator", "CanApplyModerator"),
+        }
+      : undefined,
+    stats: stats
+      ? {
+          countriesVisited: toNumberOrUndefined(readField(stats, "countriesVisited", "CountriesVisited")),
+          citiesVisited: toNumberOrUndefined(readField(stats, "citiesVisited", "CitiesVisited")),
+          totalDays: toNumberOrUndefined(readField(stats, "totalDays", "TotalDays")),
+          totalTrips: toNumberOrUndefined(readField(stats, "totalTrips", "TotalTrips")),
+        }
+      : undefined,
+  };
 }
 
 export async function fetchCityPhotos(cityId: string) {
@@ -334,10 +458,15 @@ export async function fetchCityPhotos(cityId: string) {
       id,
       userId: String(readField<string | number>(row, "userId", "UserId") ?? ""),
       cityId: String(readField<string | number>(row, "cityId", "CityId") ?? ""),
-      title: readField<string>(row, "title", "Title") || "",
+      title: readField<string>(row, "title", "Title", "caption", "Caption", "placeName", "PlaceName") || "",
       imageUrl: readField<string>(row, "imageUrl", "ImageUrl") || "",
       description: readField<string>(row, "description", "Description") || "",
-      locationNote: readField<string>(row, "locationNote", "LocationNote") || "",
+      locationNote: readField<string>(row, "locationNote", "LocationNote", "location", "Location", "address", "Address") || "",
+      moderationStatus:
+        (readField<string>(row, "moderationStatus", "ModerationStatus") as CityPhotoDto["moderationStatus"]) || "pending",
+      moderationReason: readField<string>(row, "moderationReason", "ModerationReason") || "",
+      reviewedAt: readField<string>(row, "reviewedAt", "ReviewedAt") || "",
+      reviewedBy: String(readField<string | number>(row, "reviewedBy", "ReviewedBy") ?? ""),
       createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
     });
   }
@@ -359,9 +488,13 @@ export async function fetchMyReports() {
       id,
       reporterId: String(readField<string | number>(row, "reporterId", "ReporterId") ?? ""),
       reporterName: readField<string>(row, "reporterName", "ReporterName") || "",
+      reporterDisplayName: readField<string>(row, "reporterDisplayName", "ReporterDisplayName") || "",
+      reporterSummary: readField<string>(row, "reporterSummary", "ReporterSummary") || "",
       contentType: readField<string>(row, "contentType", "ContentType") || "",
       targetId: readField<string>(row, "targetId", "TargetId") || "",
       targetName: readField<string>(row, "targetName", "TargetName") || "",
+      targetDisplayName: readField<string>(row, "targetDisplayName", "TargetDisplayName") || "",
+      targetSummary: readField<string>(row, "targetSummary", "TargetSummary") || "",
       reasonId: readField<string>(row, "reasonId", "ReasonId") || "",
       reasonLabel: readField<string>(row, "reasonLabel", "ReasonLabel") || "",
       status: readField<string>(row, "status", "Status") || "",
@@ -402,9 +535,13 @@ export async function fetchReportById(reportId: string) {
     id,
     reporterId: String(readField<string | number>(row, "reporterId", "ReporterId") ?? ""),
     reporterName: readField<string>(row, "reporterName", "ReporterName") || "",
+    reporterDisplayName: readField<string>(row, "reporterDisplayName", "ReporterDisplayName") || "",
+    reporterSummary: readField<string>(row, "reporterSummary", "ReporterSummary") || "",
     contentType: readField<string>(row, "contentType", "ContentType") || "",
     targetId: readField<string>(row, "targetId", "TargetId") || "",
     targetName: readField<string>(row, "targetName", "TargetName") || "",
+    targetDisplayName: readField<string>(row, "targetDisplayName", "TargetDisplayName") || "",
+    targetSummary: readField<string>(row, "targetSummary", "TargetSummary") || "",
     reasonId: readField<string>(row, "reasonId", "ReasonId") || "",
     reasonLabel: readField<string>(row, "reasonLabel", "ReasonLabel") || "",
     status: readField<string>(row, "status", "Status") || "",
@@ -481,8 +618,8 @@ export async function fetchUserById(userId: string) {
   }
 
   const res = await apiGet<unknown>(`/users/${encodeURIComponent(safeId)}`);
-  const row = (res.data ?? {}) as Dict;
-  const id = String(readField<string | number>(row, "id", "Id") ?? "");
+  const user = mapUser((res.data ?? {}) as Dict);
+  const id = user.id;
 
   if (!id) {
     return {
@@ -493,16 +630,28 @@ export async function fetchUserById(userId: string) {
     };
   }
 
-  const user: UserDto = {
-    id,
-    name: readField<string>(row, "name", "Name") || "",
-    email: readField<string>(row, "email", "Email") || "",
-    role: readField<string>(row, "role", "Role") || "",
-    avatarUrl: readField<string>(row, "avatarUrl", "AvatarUrl") || "",
-    createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
-  };
-
   return { ...res, data: user };
+}
+
+export async function updateUser(
+  userId: string,
+  body: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    avatarUrl?: string;
+    bio?: string;
+  },
+): Promise<ApiResult<UserDto | null>> {
+  const res = await apiPut<unknown>(`/users/${encodeURIComponent(userId)}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapUser((res.data ?? {}) as Dict) };
+}
+
+export async function changeUserRole(userId: string, roleId: string): Promise<ApiResult<UserDto | null>> {
+  const res = await apiPatch<unknown>(`/users/${encodeURIComponent(userId)}/role`, { roleId });
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapUser((res.data ?? {}) as Dict) };
 }
 
 export async function fetchCities(params: { page?: number; pageSize?: number; search?: string }) {
@@ -909,6 +1058,31 @@ async function apiPut<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   }
 }
 
+async function apiPatch<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  const token = await getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(`${getApiBase()}${path}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const raw = (await res.json().catch(() => null)) as unknown;
+    const parsed = asEnvelope<T>(raw);
+    return {
+      ok: res.ok && parsed.success,
+      message: parsed.message || (res.ok ? "OK" : `HTTP ${res.status}`),
+      data: parsed.data,
+      status: res.status,
+    };
+  } catch (error) {
+    return { ok: false, message: `Network error: ${String(error)}`, data: null, status: 0 };
+  }
+}
+
 async function apiDelete<T>(path: string): Promise<ApiResult<T>> {
   const headers: HeadersInit = {};
   const token = await getAuthToken();
@@ -1232,7 +1406,7 @@ export async function fetchHotelReviews(params: {
   if (params.status) query.set("status", params.status);
   if (params.sortBy) query.set("sortBy", params.sortBy);
 
-  const res = await apiGet<unknown>(`/hotel-reviews?${query.toString()}`);
+  const res = await apiGet<unknown>(`/admin/hotel-reviews?${query.toString()}`);
   const paged = toPagedDicts(res.data, page, pageSize);
 
   const rows: HotelReviewDto[] = [];
@@ -1276,7 +1450,7 @@ export async function fetchCityReviews(params: {
   if (params.minRating) query.set("minRating", String(params.minRating));
   if (params.status) query.set("status", params.status);
 
-  const res = await apiGet<unknown>(`/city-reviews?${query.toString()}`);
+  const res = await apiGet<unknown>(`/admin/city-reviews?${query.toString()}`);
   const paged = toPagedDicts(res.data, page, pageSize);
 
   const rows: CityReviewDto[] = [];
@@ -1373,12 +1547,40 @@ export type TravelPlanDetailDto = TravelPlanDto & {
   interests?: string[];
   departureCity?: string;
   departureDate?: string;
-  dailyItinerary?: unknown[];
-  attractions?: unknown[];
-  restaurants?: unknown[];
+  dailyItinerary?: unknown;
+  attractions?: unknown;
+  restaurants?: unknown;
   budget?: unknown;
   tips?: string[];
 };
+
+function mapTravelPlanDetail(d: Dict): TravelPlanDetailDto {
+  const interestsRaw = readField<unknown[]>(d, "interests", "Interests");
+  const tipsRaw = readField<unknown[]>(d, "tips", "Tips");
+
+  return {
+    id: String(readField<string>(d, "id", "Id") || ""),
+    userId: readField<string>(d, "userId", "UserId"),
+    userName: readField<string>(d, "userName", "UserName"),
+    destination: readField<string>(d, "destination", "Destination"),
+    cityName: readField<string>(d, "cityName", "CityName"),
+    days: toNumberOrUndefined(readField(d, "days", "Days")),
+    budgetLevel: readField<string>(d, "budgetLevel", "BudgetLevel"),
+    travelStyle: readField<string>(d, "travelStyle", "TravelStyle"),
+    completionRate: toNumberOrUndefined(readField(d, "completionRate", "CompletionRate")),
+    status: readField<string>(d, "status", "Status"),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+    interests: Array.isArray(interestsRaw) ? interestsRaw.map(String) : [],
+    departureCity: readField<string>(d, "departureCity", "DepartureCity"),
+    departureDate: readField<string>(d, "departureDate", "DepartureDate"),
+    dailyItinerary: readField(d, "dailyItinerary", "DailyItinerary"),
+    attractions: readField(d, "attractions", "Attractions"),
+    restaurants: readField(d, "restaurants", "Restaurants"),
+    budget: readField(d, "budget", "Budget"),
+    tips: Array.isArray(tipsRaw) ? tipsRaw.map(String) : [],
+  };
+}
 
 export async function fetchTravelPlans(params: {
   page?: number;
@@ -1392,7 +1594,7 @@ export async function fetchTravelPlans(params: {
   if (params.search) sp.set("search", params.search);
   if (params.status) sp.set("status", params.status);
 
-  const res = await apiGet<unknown>(`/travel-plans?${sp}`);
+  const res = await apiGet<unknown>(`/admin/travel-plans?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
@@ -1413,11 +1615,22 @@ export async function fetchTravelPlans(params: {
 }
 
 export async function fetchTravelPlanById(id: string): Promise<ApiResult<TravelPlanDetailDto | null>> {
-  return apiGet<TravelPlanDetailDto>(`/travel-plans/${encodeURIComponent(id)}`);
+  const res = await apiGet<unknown>(`/admin/travel-plans/${encodeURIComponent(id)}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapTravelPlanDetail((res.data ?? {}) as Dict) };
 }
 
 export async function deleteTravelPlan(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/travel-plans/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/travel-plans/${encodeURIComponent(id)}`);
+}
+
+export async function updateTravelPlanStatus(
+  id: string,
+  status: "planning" | "confirmed" | "completed",
+): Promise<ApiResult<TravelPlanDetailDto | null>> {
+  const res = await apiPut<unknown>(`/admin/travel-plans/${encodeURIComponent(id)}/status`, { status });
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapTravelPlanDetail((res.data ?? {}) as Dict) };
 }
 
 /* ─────────────────────────── Moderators ─────────────────────────── */
@@ -1462,7 +1675,7 @@ export async function fetchModerators(params: {
   sp.set("pageSize", String(params.pageSize ?? 20));
   if (params.search) sp.set("search", params.search);
 
-  const res = await apiGet<unknown>(`/moderators?${sp}`);
+  const res = await apiGet<unknown>(`/admin/moderators?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
@@ -1492,7 +1705,7 @@ export async function fetchModeratorApplications(params: {
   sp.set("pageSize", String(params.pageSize ?? 20));
   if (params.status) sp.set("status", params.status);
 
-  const res = await apiGet<unknown>(`/moderator-applications?${sp}`);
+  const res = await apiGet<unknown>(`/admin/moderator-applications?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
@@ -1515,46 +1728,131 @@ export async function fetchModeratorApplications(params: {
 }
 
 export async function approveModeratorApplication(id: string): Promise<ApiResult<null>> {
-  return apiPut<null>(`/moderator-applications/${encodeURIComponent(id)}`, { status: "approved" });
+  return apiPost<null>(`/admin/moderator-applications/${encodeURIComponent(id)}/approve`, {});
 }
 
 export async function rejectModeratorApplication(id: string): Promise<ApiResult<null>> {
-  return apiPut<null>(`/moderator-applications/${encodeURIComponent(id)}`, { status: "rejected" });
+  return apiPost<null>(`/admin/moderator-applications/${encodeURIComponent(id)}/reject`, {});
 }
 
-export async function removeModerator(cityId: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/moderators/${encodeURIComponent(cityId)}`);
+export async function removeModerator(id: string): Promise<ApiResult<null>> {
+  return apiDelete<null>(`/admin/moderators/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── Membership ─────────────────────────── */
 
 export type MembershipPlanDto = {
   id: string;
+  level?: number;
   name?: string;
+  description?: string;
   price?: number;
   duration?: string;
+  priceMonthly?: number;
+  priceYearly?: number;
+  currency?: string;
+  icon?: string;
+  color?: string;
   features?: string[];
   subscriberCount?: number;
   status?: string;
+  aiUsageLimit?: number;
+  canUseAI?: boolean;
+  canApplyModerator?: boolean;
+  moderatorDeposit?: number;
+  sortOrder?: number;
   createdAt?: string;
+  updatedAt?: string;
 };
 
+export type MembershipPlanDetailDto = MembershipPlanDto;
+
+export type MembershipPlanSubscriberDto = {
+  userId: string;
+  userName?: string;
+  email?: string;
+  startDate?: string;
+  expiryDate?: string;
+  isActive?: boolean;
+  autoRenew?: boolean;
+  remainingDays?: number;
+};
+
+function mapMembershipPlan(d: Dict): MembershipPlanDto {
+  return {
+    id: String(readField<string>(d, "id", "Id") || ""),
+    level: toNumberOrUndefined(readField(d, "level", "Level")),
+    name: readField<string>(d, "name", "Name"),
+    description: readField<string>(d, "description", "Description"),
+    price: toNumberOrUndefined(readField(d, "price", "Price")),
+    duration: readField<string>(d, "duration", "Duration"),
+    priceMonthly: toNumberOrUndefined(readField(d, "priceMonthly", "PriceMonthly")),
+    priceYearly: toNumberOrUndefined(readField(d, "priceYearly", "PriceYearly")),
+    currency: readField<string>(d, "currency", "Currency"),
+    icon: readField<string>(d, "icon", "Icon"),
+    color: readField<string>(d, "color", "Color"),
+    features: readField<string[]>(d, "features", "Features"),
+    subscriberCount: toNumberOrUndefined(readField(d, "subscriberCount", "SubscriberCount")),
+    status: readField<string>(d, "status", "Status"),
+    aiUsageLimit: toNumberOrUndefined(readField(d, "aiUsageLimit", "AiUsageLimit")),
+    canUseAI: readField<boolean>(d, "canUseAI", "CanUseAI"),
+    canApplyModerator: readField<boolean>(d, "canApplyModerator", "CanApplyModerator"),
+    moderatorDeposit: toNumberOrUndefined(readField(d, "moderatorDeposit", "ModeratorDeposit")),
+    sortOrder: toNumberOrUndefined(readField(d, "sortOrder", "SortOrder")),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+  };
+}
+
 export async function fetchMembershipPlans(): Promise<ApiResult<MembershipPlanDto[]>> {
-  const res = await apiGet<unknown[]>("/memberships/plans");
+  const res = await apiGet<unknown[]>("/admin/membership/plans");
   const rows = Array.isArray(res.data) ? res.data : [];
-  const items: MembershipPlanDto[] = rows.map((x) => {
-    const d = (x ?? {}) as Dict;
+  const items: MembershipPlanDto[] = rows.map((x) => mapMembershipPlan((x ?? {}) as Dict));
+  return { ...res, data: items };
+}
+
+export async function fetchMembershipPlanById(id: string): Promise<ApiResult<MembershipPlanDetailDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
     return {
-      id: String(readField<string>(d, "id", "Id") || ""),
-      name: readField<string>(d, "name", "Name"),
-      price: toNumberOrUndefined(readField(d, "price", "Price")),
-      duration: readField<string>(d, "duration", "Duration"),
-      features: readField<string[]>(d, "features", "Features"),
-      subscriberCount: toNumberOrUndefined(readField(d, "subscriberCount", "SubscriberCount")),
-      status: readField<string>(d, "status", "Status"),
-      createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+      ok: false,
+      message: "id is required",
+      data: null,
+      status: 0,
     };
+  }
+
+  const res = await apiGet<unknown>(`/admin/membership/plans/${encodeURIComponent(safeId)}`);
+  const d = (res.data ?? {}) as Dict;
+  const item: MembershipPlanDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? mapMembershipPlan(d)
+    : null;
+
+  return { ...res, data: item };
+}
+
+export async function fetchMembershipPlanSubscribers(id: string): Promise<ApiResult<MembershipPlanSubscriberDto[]>> {
+  const safeId = id.trim();
+  if (!safeId) {
+    return { ok: false, message: "id is required", data: [], status: 0 };
+  }
+
+  const res = await apiGet<unknown[]>(`/admin/membership/plans/${encodeURIComponent(safeId)}/subscribers`);
+  const rows = Array.isArray(res.data) ? res.data : [];
+  const items = rows.map((row) => {
+    const d = (row ?? {}) as Dict;
+    return {
+      userId: String(readField<string>(d, "userId", "UserId") || ""),
+      userName: readField<string>(d, "userName", "UserName"),
+      email: readField<string>(d, "email", "Email"),
+      startDate: readField<string>(d, "startDate", "StartDate"),
+      expiryDate: readField<string>(d, "expiryDate", "ExpiryDate"),
+      isActive: readField<boolean>(d, "isActive", "IsActive"),
+      autoRenew: readField<boolean>(d, "autoRenew", "AutoRenew"),
+      remainingDays: toNumberOrUndefined(readField(d, "remainingDays", "RemainingDays")),
+    } satisfies MembershipPlanSubscriberDto;
   });
+
   return { ...res, data: items };
 }
 
@@ -1564,18 +1862,18 @@ export async function createMembershipPlan(data: {
   duration: string;
   features?: string[];
 }): Promise<ApiResult<MembershipPlanDto>> {
-  return apiPost<MembershipPlanDto>("/memberships/plans", data);
+  return apiPost<MembershipPlanDto>("/admin/membership/plans", data);
 }
 
 export async function updateMembershipPlan(
   id: string,
   data: { name?: string; price?: number; duration?: string; features?: string[] },
 ): Promise<ApiResult<MembershipPlanDto>> {
-  return apiPut<MembershipPlanDto>(`/memberships/plans/${encodeURIComponent(id)}`, data);
+  return apiPut<MembershipPlanDto>(`/admin/membership/plans/${encodeURIComponent(id)}`, data);
 }
 
 export async function deleteMembershipPlan(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/memberships/plans/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/membership/plans/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── Pros & Cons ─────────────────────────── */
@@ -1608,7 +1906,7 @@ export async function fetchProsCons(params: {
   if (params.type) sp.set("type", params.type);
   if (params.status) sp.set("status", params.status);
 
-  const res = await apiGet<unknown>(`/pros-cons?${sp}`);
+  const res = await apiGet<unknown>(`/admin/pros-cons?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
@@ -1629,11 +1927,11 @@ export async function fetchProsCons(params: {
 }
 
 export async function hideProsConsItem(id: string): Promise<ApiResult<null>> {
-  return apiPut<null>(`/pros-cons/${encodeURIComponent(id)}/hide`, {});
+  return apiPut<null>(`/admin/pros-cons/${encodeURIComponent(id)}/hide`, {});
 }
 
 export async function deleteProsConsItem(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/pros-cons/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/pros-cons/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── Community ─────────────────────────── */
@@ -1652,6 +1950,14 @@ export type CommunityPostDto = {
   createdAt?: string;
 };
 
+export type CommunityPostDetailDto = CommunityPostDto & {
+  title?: string;
+  updatedAt?: string;
+  tags?: string[];
+  acceptedAnswerId?: string;
+  acceptedAnswerSummary?: string;
+};
+
 export async function fetchCommunityPosts(params: {
   page?: number;
   pageSize?: number;
@@ -1664,7 +1970,7 @@ export async function fetchCommunityPosts(params: {
   if (params.search) sp.set("search", params.search);
   if (params.type) sp.set("type", params.type);
 
-  const res = await apiGet<unknown>(`/community/posts?${sp}`);
+  const res = await apiGet<unknown>(`/admin/community/posts?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
@@ -1684,25 +1990,97 @@ export async function fetchCommunityPosts(params: {
   return { ...res, data: { ...paged, items } };
 }
 
+export async function fetchCommunityPostById(id: string): Promise<ApiResult<CommunityPostDetailDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
+    return { ok: false, message: "id is required", data: null, status: 0 };
+  }
+
+  const res = await apiGet<unknown>(`/admin/community/posts/${encodeURIComponent(safeId)}`);
+  const d = (res.data ?? {}) as Dict;
+  const item: CommunityPostDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? {
+        id: String(readField<string>(d, "id", "Id") || ""),
+        type: readField<string>(d, "type", "Type"),
+        authorId: readField<string>(d, "authorId", "AuthorId"),
+        authorName: readField<string>(d, "authorName", "AuthorName"),
+        title: readField<string>(d, "title", "Title"),
+        content: readField<string>(d, "content", "Content"),
+        likeCount: toNumberOrUndefined(readField(d, "likeCount", "LikeCount")),
+        commentCount: toNumberOrUndefined(readField(d, "commentCount", "CommentCount")),
+        cityId: readField<string>(d, "cityId", "CityId"),
+        cityName: readField<string>(d, "cityName", "CityName"),
+        status: readField<string>(d, "status", "Status"),
+        createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+        updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+        tags: (readField<unknown[]>(d, "tags", "Tags") ?? []).map((tag) => String(tag)),
+        acceptedAnswerId: readField<string>(d, "acceptedAnswerId", "AcceptedAnswerId"),
+        acceptedAnswerSummary: readField<string>(d, "acceptedAnswerSummary", "AcceptedAnswerSummary"),
+      }
+    : null;
+
+  return { ...res, data: item };
+}
+
+export async function updateCommunityPostStatus(
+  id: string,
+  status: "active" | "hidden",
+): Promise<ApiResult<CommunityPostDetailDto | null>> {
+  const res = await apiPut<unknown>(`/admin/community/posts/${encodeURIComponent(id)}/status`, { status });
+  const d = (res.data ?? {}) as Dict;
+  const item: CommunityPostDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? {
+        id: String(readField<string>(d, "id", "Id") || ""),
+        type: readField<string>(d, "type", "Type"),
+        authorId: readField<string>(d, "authorId", "AuthorId"),
+        authorName: readField<string>(d, "authorName", "AuthorName"),
+        title: readField<string>(d, "title", "Title"),
+        content: readField<string>(d, "content", "Content"),
+        likeCount: toNumberOrUndefined(readField(d, "likeCount", "LikeCount")),
+        commentCount: toNumberOrUndefined(readField(d, "commentCount", "CommentCount")),
+        cityId: readField<string>(d, "cityId", "CityId"),
+        cityName: readField<string>(d, "cityName", "CityName"),
+        status: readField<string>(d, "status", "Status"),
+        createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+        updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+        tags: (readField<unknown[]>(d, "tags", "Tags") ?? []).map((tag) => String(tag)),
+        acceptedAnswerId: readField<string>(d, "acceptedAnswerId", "AcceptedAnswerId"),
+        acceptedAnswerSummary: readField<string>(d, "acceptedAnswerSummary", "AcceptedAnswerSummary"),
+      }
+    : null;
+
+  return { ...res, data: item };
+}
+
 export async function deleteCommunityPost(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/community/posts/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/community/posts/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── Notifications ─────────────────────────── */
 
 export type NotificationDto = {
   id: string;
+  userId?: string;
+  recipientUserName?: string;
+  recipientSummary?: string;
   type?: string;
   title?: string;
   content?: string;
   scope?: string;
-  scheduledAt?: string;
-  sentAt?: string;
+  scopeDisplay?: string;
+  relatedId?: string;
+  relatedResourceName?: string;
   deliveredCount?: number;
   readCount?: number;
   status?: string;
+  isRead?: boolean;
+  scheduledAt?: string;
+  readAt?: string;
   createdAt?: string;
+  metadata?: string;
 };
+
+export type NotificationDetailDto = NotificationDto;
 
 export async function fetchNotifications(params: {
   page?: number;
@@ -1714,24 +2092,104 @@ export async function fetchNotifications(params: {
   sp.set("pageSize", String(params.pageSize ?? 20));
   if (params.status) sp.set("status", params.status);
 
-  const res = await apiGet<unknown>(`/notifications?${sp}`);
+  const res = await apiGet<unknown>(`/admin/notifications?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
   const items: NotificationDto[] = paged.items.map((d) => ({
     id: String(readField<string>(d, "id", "Id") || ""),
+    userId: readField<string>(d, "userId", "UserId"),
+    recipientUserName: readField<string>(d, "recipientUserName", "RecipientUserName"),
+    recipientSummary: readField<string>(d, "recipientSummary", "RecipientSummary"),
     type: readField<string>(d, "type", "Type"),
     title: readField<string>(d, "title", "Title"),
-    content: readField<string>(d, "content", "Content"),
-    scope: readField<string>(d, "scope", "Scope"),
+    content: readField<string>(d, "content", "Content", "message", "Message"),
+    scope: readField<string>(d, "scope", "Scope") || "admins",
+    scopeDisplay: readField<string>(d, "scopeDisplay", "ScopeDisplay"),
+    relatedId: readField<string>(d, "relatedId", "RelatedId"),
+    relatedResourceName: readField<string>(d, "relatedResourceName", "RelatedResourceName"),
+    deliveredCount: toNumberOrUndefined(readField(d, "deliveredCount", "DeliveredCount")) ?? 1,
+    readCount:
+      toNumberOrUndefined(readField(d, "readCount", "ReadCount")) ??
+      (Boolean(readField<unknown>(d, "isRead", "IsRead")) ? 1 : 0),
+    status:
+      readField<string>(d, "status", "Status") ||
+      (Boolean(readField<unknown>(d, "isRead", "IsRead")) ? "read" : "unread"),
+    isRead: Boolean(readField<unknown>(d, "isRead", "IsRead")),
     scheduledAt: readField<string>(d, "scheduledAt", "ScheduledAt"),
-    sentAt: readField<string>(d, "sentAt", "SentAt"),
-    deliveredCount: toNumberOrUndefined(readField(d, "deliveredCount", "DeliveredCount")),
-    readCount: toNumberOrUndefined(readField(d, "readCount", "ReadCount")),
-    status: readField<string>(d, "status", "Status"),
+    readAt: readField<string>(d, "readAt", "ReadAt"),
     createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    metadata: toStringOrJson(readField(d, "metadata", "Metadata")),
   }));
   return { ...res, data: { ...paged, items } };
+}
+
+export async function fetchNotificationById(id: string): Promise<ApiResult<NotificationDetailDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
+    return { ok: false, message: "id is required", data: null, status: 0 };
+  }
+
+  const res = await apiGet<unknown>(`/admin/notifications/${encodeURIComponent(safeId)}`);
+  const d = (res.data ?? {}) as Dict;
+  const item: NotificationDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? {
+        id: String(readField<string>(d, "id", "Id") || ""),
+        userId: readField<string>(d, "userId", "UserId"),
+        recipientUserName: readField<string>(d, "recipientUserName", "RecipientUserName"),
+        recipientSummary: readField<string>(d, "recipientSummary", "RecipientSummary"),
+        type: readField<string>(d, "type", "Type"),
+        title: readField<string>(d, "title", "Title"),
+        content: readField<string>(d, "content", "Content", "message", "Message"),
+        status: readField<string>(d, "status", "Status") || (Boolean(readField<unknown>(d, "isRead", "IsRead")) ? "read" : "unread"),
+        isRead: Boolean(readField<unknown>(d, "isRead", "IsRead")),
+        readAt: readField<string>(d, "readAt", "ReadAt"),
+        createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+        metadata: toStringOrJson(readField(d, "metadata", "Metadata")),
+        scope: readField<string>(d, "scope", "Scope") || "admins",
+        scopeDisplay: readField<string>(d, "scopeDisplay", "ScopeDisplay"),
+        relatedId: readField<string>(d, "relatedId", "RelatedId"),
+        relatedResourceName: readField<string>(d, "relatedResourceName", "RelatedResourceName"),
+        deliveredCount: toNumberOrUndefined(readField(d, "deliveredCount", "DeliveredCount")) ?? 1,
+        readCount: toNumberOrUndefined(readField(d, "readCount", "ReadCount")) ?? 0,
+        scheduledAt: readField<string>(d, "scheduledAt", "ScheduledAt"),
+      }
+    : null;
+
+  return { ...res, data: item };
+}
+
+export async function updateNotification(
+  id: string,
+  data: { title?: string; message?: string; type?: string; metadata?: string },
+): Promise<ApiResult<NotificationDetailDto | null>> {
+  const res = await apiPut<unknown>(`/admin/notifications/${encodeURIComponent(id)}`, data);
+  const d = (res.data ?? {}) as Dict;
+  const item: NotificationDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? {
+        id: String(readField<string>(d, "id", "Id") || ""),
+        userId: readField<string>(d, "userId", "UserId"),
+        recipientUserName: readField<string>(d, "recipientUserName", "RecipientUserName"),
+        recipientSummary: readField<string>(d, "recipientSummary", "RecipientSummary"),
+        type: readField<string>(d, "type", "Type"),
+        title: readField<string>(d, "title", "Title"),
+        content: readField<string>(d, "content", "Content", "message", "Message"),
+        status: readField<string>(d, "status", "Status") || (Boolean(readField<unknown>(d, "isRead", "IsRead")) ? "read" : "unread"),
+        isRead: Boolean(readField<unknown>(d, "isRead", "IsRead")),
+        readAt: readField<string>(d, "readAt", "ReadAt"),
+        createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+        metadata: toStringOrJson(readField(d, "metadata", "Metadata")),
+        scope: readField<string>(d, "scope", "Scope") || "admins",
+        scopeDisplay: readField<string>(d, "scopeDisplay", "ScopeDisplay"),
+        relatedId: readField<string>(d, "relatedId", "RelatedId"),
+        relatedResourceName: readField<string>(d, "relatedResourceName", "RelatedResourceName"),
+        deliveredCount: toNumberOrUndefined(readField(d, "deliveredCount", "DeliveredCount")) ?? 1,
+        readCount: toNumberOrUndefined(readField(d, "readCount", "ReadCount")) ?? 0,
+        scheduledAt: readField<string>(d, "scheduledAt", "ScheduledAt"),
+      }
+    : null;
+
+  return { ...res, data: item };
 }
 
 export async function createNotification(data: {
@@ -1741,21 +2199,61 @@ export async function createNotification(data: {
   scope: string;
   scheduledAt?: string;
 }): Promise<ApiResult<NotificationDto>> {
-  return apiPost<NotificationDto>("/notifications", data);
+  return apiPost<NotificationDto>("/admin/notifications", {
+    title: data.title,
+    message: data.content,
+    type: data.type,
+  });
 }
 
 export async function deleteNotification(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/notifications/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/notifications/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── Chat / Conversations ─────────────────────────── */
 
 export type ConversationDto = {
   id: string;
+  name?: string;
+  roomType?: string;
+  city?: string;
+  country?: string;
+  totalMembers?: number;
+  createdBy?: string;
+  imageUrl?: string;
   participants?: { userId: string; userName: string; avatarUrl?: string }[];
   lastMessage?: string;
   unreadCount?: number;
   lastActiveAt?: string;
+  description?: string;
+  createdByName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ConversationMemberDto = {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  role?: string;
+  isOnline?: boolean;
+  lastSeenAt?: string;
+};
+
+export type ConversationMessageDto = {
+  id: string;
+  userId?: string;
+  userName?: string;
+  userAvatar?: string;
+  message?: string;
+  messageType?: string;
+  timestamp?: string;
+};
+
+export type ConversationDetailDto = ConversationDto & {
+  isPublic?: boolean;
+  members?: ConversationMemberDto[];
+  messages?: ConversationMessageDto[];
 };
 
 export async function fetchConversations(params: {
@@ -1768,22 +2266,87 @@ export async function fetchConversations(params: {
   sp.set("pageSize", String(params.pageSize ?? 20));
   if (params.search) sp.set("search", params.search);
 
-  const res = await apiGet<unknown>(`/conversations?${sp}`);
+  const res = await apiGet<unknown>(`/admin/chats?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
   const items: ConversationDto[] = paged.items.map((d) => ({
     id: String(readField<string>(d, "id", "Id") || ""),
+    name: readField<string>(d, "name", "Name"),
+    roomType: readField<string>(d, "roomType", "RoomType"),
+    city: readField<string>(d, "city", "City"),
+    country: readField<string>(d, "country", "Country"),
+    totalMembers: toNumberOrUndefined(readField(d, "totalMembers", "TotalMembers")),
+    createdBy: readField<string>(d, "createdBy", "CreatedBy"),
+    imageUrl: readField<string>(d, "imageUrl", "ImageUrl"),
     participants: readField(d, "participants", "Participants") as ConversationDto["participants"],
-    lastMessage: readField<string>(d, "lastMessage", "LastMessage"),
+    lastMessage: readField<string>(d, "lastMessage", "LastMessage", "description", "Description"),
     unreadCount: toNumberOrUndefined(readField(d, "unreadCount", "UnreadCount")),
-    lastActiveAt: readField<string>(d, "lastActiveAt", "LastActiveAt"),
+    lastActiveAt: readField<string>(d, "lastActiveAt", "LastActiveAt", "updatedAt", "UpdatedAt", "createdAt", "CreatedAt"),
+    description: readField<string>(d, "description", "Description"),
+    createdByName: readField<string>(d, "createdByName", "CreatedByName"),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
   }));
   return { ...res, data: { ...paged, items } };
 }
 
+export async function fetchConversationById(id: string): Promise<ApiResult<ConversationDetailDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
+    return { ok: false, message: "id is required", data: null, status: 0 };
+  }
+
+  const res = await apiGet<unknown>(`/admin/chats/${encodeURIComponent(safeId)}`);
+  const d = (res.data ?? {}) as Dict;
+  const item: ConversationDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? {
+        id: String(readField<string>(d, "id", "Id") || ""),
+        name: readField<string>(d, "name", "Name"),
+        roomType: readField<string>(d, "roomType", "RoomType"),
+        city: readField<string>(d, "city", "City"),
+        country: readField<string>(d, "country", "Country"),
+        totalMembers: toNumberOrUndefined(readField(d, "totalMembers", "TotalMembers")),
+        createdBy: readField<string>(d, "createdBy", "CreatedBy"),
+        createdByName: readField<string>(d, "createdByName", "CreatedByName"),
+        imageUrl: readField<string>(d, "imageUrl", "ImageUrl"),
+        description: readField<string>(d, "description", "Description"),
+        lastMessage: readField<string>(d, "lastMessage", "LastMessage"),
+        lastActiveAt: readField<string>(d, "lastActiveAt", "LastActiveAt"),
+        createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+        updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+        isPublic: Boolean(readField<unknown>(d, "isPublic", "IsPublic")),
+        members: (readField<unknown[]>(d, "members", "Members") ?? []).map((member) => {
+          const m = (member ?? {}) as Dict;
+          return {
+            userId: String(readField<string>(m, "userId", "UserId") || ""),
+            userName: readField<string>(m, "userName", "UserName") || "",
+            userAvatar: readField<string>(m, "userAvatar", "UserAvatar"),
+            role: readField<string>(m, "role", "Role"),
+            isOnline: Boolean(readField<unknown>(m, "isOnline", "IsOnline")),
+            lastSeenAt: readField<string>(m, "lastSeenAt", "LastSeenAt"),
+          };
+        }),
+        messages: (readField<unknown[]>(d, "messages", "Messages") ?? []).map((message) => {
+          const m = (message ?? {}) as Dict;
+          return {
+            id: String(readField<string>(m, "id", "Id") || ""),
+            userId: readField<string>(m, "userId", "UserId"),
+            userName: readField<string>(m, "userName", "UserName"),
+            userAvatar: readField<string>(m, "userAvatar", "UserAvatar"),
+            message: readField<string>(m, "message", "Message"),
+            messageType: readField<string>(m, "messageType", "MessageType"),
+            timestamp: readField<string>(m, "timestamp", "Timestamp"),
+          };
+        }),
+      }
+    : null;
+
+  return { ...res, data: item };
+}
+
 export async function deleteConversation(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/conversations/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/chats/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── AI Chat Sessions ─────────────────────────── */
@@ -1792,10 +2355,30 @@ export type AiSessionDto = {
   id: string;
   userId?: string;
   userName?: string;
+  title?: string;
+  status?: string;
   lastMessage?: string;
   model?: string;
   tokenUsage?: number;
+  lastMessageAt?: string;
   createdAt?: string;
+};
+
+export type AiSessionMessageDto = {
+  id: string;
+  role?: string;
+  content?: string;
+  modelName?: string;
+  tokenCount?: number;
+  totalTokens?: number;
+  isError?: boolean;
+  errorMessage?: string;
+  createdAt?: string;
+};
+
+export type AiSessionDetailDto = AiSessionDto & {
+  updatedAt?: string;
+  messages?: AiSessionMessageDto[];
 };
 
 export async function fetchAiSessions(params: {
@@ -1808,7 +2391,7 @@ export async function fetchAiSessions(params: {
   sp.set("pageSize", String(params.pageSize ?? 20));
   if (params.search) sp.set("search", params.search);
 
-  const res = await apiGet<unknown>(`/ai-sessions?${sp}`);
+  const res = await apiGet<unknown>(`/admin/ai/conversations?${sp}`);
   if (!res.ok || !res.data) return { ...res, data: { items: [], totalCount: 0, page: 1, pageSize: 20 } };
 
   const paged = toPagedDicts(res.data, params.page, params.pageSize);
@@ -1816,48 +2399,647 @@ export async function fetchAiSessions(params: {
     id: String(readField<string>(d, "id", "Id") || ""),
     userId: readField<string>(d, "userId", "UserId"),
     userName: readField<string>(d, "userName", "UserName"),
-    lastMessage: readField<string>(d, "lastMessage", "LastMessage"),
-    model: readField<string>(d, "model", "Model"),
-    tokenUsage: toNumberOrUndefined(readField(d, "tokenUsage", "TokenUsage")),
+    title: readField<string>(d, "title", "Title"),
+    status: readField<string>(d, "status", "Status"),
+    lastMessage: readField<string>(d, "lastMessage", "LastMessage", "title", "Title"),
+    model: readField<string>(d, "model", "Model", "modelName", "ModelName"),
+    tokenUsage: toNumberOrUndefined(readField(d, "tokenUsage", "TokenUsage", "totalTokens", "TotalTokens")),
+    lastMessageAt: readField<string>(d, "lastMessageAt", "LastMessageAt"),
     createdAt: readField<string>(d, "createdAt", "CreatedAt"),
   }));
   return { ...res, data: { ...paged, items } };
 }
 
+export async function fetchAiSessionById(id: string): Promise<ApiResult<AiSessionDetailDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
+    return { ok: false, message: "id is required", data: null, status: 0 };
+  }
+
+  const res = await apiGet<unknown>(`/admin/ai/conversations/${encodeURIComponent(safeId)}`);
+  const d = (res.data ?? {}) as Dict;
+  const item: AiSessionDetailDto | null = String(readField<string>(d, "id", "Id") || "")
+    ? {
+        id: String(readField<string>(d, "id", "Id") || ""),
+        userId: readField<string>(d, "userId", "UserId"),
+        userName: readField<string>(d, "userName", "UserName"),
+        title: readField<string>(d, "title", "Title"),
+        status: readField<string>(d, "status", "Status"),
+        model: readField<string>(d, "model", "Model", "modelName", "ModelName"),
+        tokenUsage: toNumberOrUndefined(readField(d, "tokenUsage", "TokenUsage", "totalTokens", "TotalTokens")),
+        lastMessageAt: readField<string>(d, "lastMessageAt", "LastMessageAt"),
+        createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+        updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+        messages: (readField<unknown[]>(d, "messages", "Messages") ?? []).map((message) => {
+          const m = (message ?? {}) as Dict;
+          return {
+            id: String(readField<string>(m, "id", "Id") || ""),
+            role: readField<string>(m, "role", "Role"),
+            content: readField<string>(m, "content", "Content"),
+            modelName: readField<string>(m, "modelName", "ModelName"),
+            tokenCount: toNumberOrUndefined(readField(m, "tokenCount", "TokenCount")),
+            totalTokens: toNumberOrUndefined(readField(m, "totalTokens", "TotalTokens")),
+            isError: Boolean(readField<unknown>(m, "isError", "IsError")),
+            errorMessage: readField<string>(m, "errorMessage", "ErrorMessage"),
+            createdAt: readField<string>(m, "createdAt", "CreatedAt"),
+          };
+        }),
+      }
+    : null;
+
+  return { ...res, data: item };
+}
+
 export async function deleteAiSession(id: string): Promise<ApiResult<null>> {
-  return apiDelete<null>(`/ai-sessions/${encodeURIComponent(id)}`);
+  return apiDelete<null>(`/admin/ai/conversations/${encodeURIComponent(id)}`);
 }
 
 /* ─────────────────────────── Legal Documents ─────────────────────────── */
 
 export type LegalDocumentDto = {
   id: string;
+  documentType?: string;
   slug?: string;
   title?: string;
   language?: string;
   version?: string;
   status?: string;
+  effectiveDate?: string;
+  isCurrent?: boolean;
   publishedAt?: string;
+  createdAt?: string;
   updatedAt?: string;
 };
 
-export async function fetchLegalDocuments(): Promise<ApiResult<LegalDocumentDto[]>> {
-  const res = await apiGet<unknown>("/users/legal");
-  const raw = res.data;
-  if (!res.ok || !raw) return { ...res, data: [] };
-  const rows = Array.isArray(raw) ? raw : [];
-  const items: LegalDocumentDto[] = rows.map((x) => {
-    const d = (x ?? {}) as Dict;
+export type LegalSectionDto = {
+  title: string;
+  content: string;
+};
+
+export type LegalSummaryDto = {
+  icon: string;
+  title: string;
+  content: string;
+};
+
+export type LegalSdkInfoDto = {
+  name: string;
+  company: string;
+  purpose: string;
+  dataCollected: string[];
+  privacyUrl: string;
+};
+
+export type LegalDocumentDetailDto = LegalDocumentDto & {
+  sections: LegalSectionDto[];
+  summary: LegalSummaryDto[];
+  sdkList: LegalSdkInfoDto[];
+};
+
+function mapLegalDocument(row: Dict): LegalDocumentDto {
+  const documentType = readField<string>(row, "documentType", "DocumentType") || "";
+  const effectiveDate = readField<string>(row, "effectiveDate", "EffectiveDate") || "";
+  const isCurrent = Boolean(readField<unknown>(row, "isCurrent", "IsCurrent"));
+
+  return {
+    id: String(readField<string | number>(row, "id", "Id") ?? ""),
+    documentType,
+    slug: readField<string>(row, "slug", "Slug") || documentType,
+    title: readField<string>(row, "title", "Title") || "",
+    language: readField<string>(row, "language", "Language") || "",
+    version: readField<string>(row, "version", "Version") || "",
+    status: readField<string>(row, "status", "Status") || (isCurrent ? "published" : "archived"),
+    effectiveDate,
+    isCurrent,
+    publishedAt: readField<string>(row, "publishedAt", "PublishedAt") || effectiveDate,
+    createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
+    updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || effectiveDate,
+  };
+}
+
+function mapLegalDocumentDetail(row: Dict): LegalDocumentDetailDto {
+  return {
+    ...mapLegalDocument(row),
+    sections: ((readField<unknown[]>(row, "sections", "Sections") ?? []) as unknown[]).map((item) => {
+      const section = (item ?? {}) as Dict;
+      return {
+        title: readField<string>(section, "title", "Title") || "",
+        content: readField<string>(section, "content", "Content") || "",
+      } satisfies LegalSectionDto;
+    }),
+    summary: ((readField<unknown[]>(row, "summary", "Summary") ?? []) as unknown[]).map((item) => {
+      const summary = (item ?? {}) as Dict;
+      return {
+        icon: readField<string>(summary, "icon", "Icon") || "",
+        title: readField<string>(summary, "title", "Title") || "",
+        content: readField<string>(summary, "content", "Content") || "",
+      } satisfies LegalSummaryDto;
+    }),
+    sdkList: ((readField<unknown[]>(row, "sdkList", "SdkList") ?? []) as unknown[]).map((item) => {
+      const sdk = (item ?? {}) as Dict;
+      return {
+        name: readField<string>(sdk, "name", "Name") || "",
+        company: readField<string>(sdk, "company", "Company") || "",
+        purpose: readField<string>(sdk, "purpose", "Purpose") || "",
+        dataCollected: Array.isArray(readField<unknown[]>(sdk, "dataCollected", "DataCollected"))
+          ? ((readField<unknown[]>(sdk, "dataCollected", "DataCollected") ?? []) as unknown[]).map((value) => String(value))
+          : [],
+        privacyUrl: readField<string>(sdk, "privacyUrl", "PrivacyUrl") || "",
+      } satisfies LegalSdkInfoDto;
+    }),
+  };
+}
+
+export async function fetchLegalDocuments(params?: {
+  page?: number;
+  pageSize?: number;
+  documentType?: string;
+  language?: string;
+  search?: string;
+}): Promise<ApiResult<Paginated<LegalDocumentDto>>> {
+  const page = params?.page ?? 1;
+  const pageSize = params?.pageSize ?? 20;
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+
+  if (params?.documentType?.trim()) query.set("documentType", params.documentType.trim());
+  if (params?.language?.trim()) query.set("language", params.language.trim());
+  if (params?.search?.trim()) query.set("search", params.search.trim());
+
+  const res = await apiGet<unknown>(`/admin/legal?${query.toString()}`);
+  const paged = toPagedDicts(res.data, page, pageSize);
+
+  return {
+    ...res,
+    data: {
+      items: paged.items.map(mapLegalDocument).filter((item) => Boolean(item.id)),
+      totalCount: paged.totalCount,
+      page: paged.page,
+      pageSize: paged.pageSize,
+    },
+  } satisfies ApiResult<Paginated<LegalDocumentDto>>;
+}
+
+export async function fetchLegalDocumentById(id: string): Promise<ApiResult<LegalDocumentDetailDto | null>> {
+  const res = await apiGet<unknown>(`/admin/legal/${encodeURIComponent(id)}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapLegalDocumentDetail((res.data ?? {}) as Dict) };
+}
+
+export async function createLegalDocument(body: {
+  documentType: string;
+  version: string;
+  language: string;
+  title: string;
+  effectiveDate: string;
+  isCurrent: boolean;
+  sections: LegalSectionDto[];
+  summary: LegalSummaryDto[];
+  sdkList: LegalSdkInfoDto[];
+}) {
+  const res = await apiPost<unknown>("/admin/legal", body);
+  if (!res.ok || !res.data) return { ...res, data: null as LegalDocumentDetailDto | null };
+  return { ...res, data: mapLegalDocumentDetail((res.data ?? {}) as Dict) };
+}
+
+export async function updateLegalDocument(
+  id: string,
+  body: {
+    documentType: string;
+    version: string;
+    language: string;
+    title: string;
+    effectiveDate: string;
+    isCurrent: boolean;
+    sections: LegalSectionDto[];
+    summary: LegalSummaryDto[];
+    sdkList: LegalSdkInfoDto[];
+  },
+) {
+  const res = await apiPut<unknown>(`/admin/legal/${encodeURIComponent(id)}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null as LegalDocumentDetailDto | null };
+  return { ...res, data: mapLegalDocumentDetail((res.data ?? {}) as Dict) };
+}
+
+export async function deleteLegalDocument(id: string) {
+  return apiDelete<null>(`/admin/legal/${encodeURIComponent(id)}`);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * ConfigService — 静态文本 / 选项组 / 配置快照
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+export type StaticTextDto = {
+  id: string;
+  textKey?: string;
+  locale?: string;
+  textValue?: string;
+  category?: string;
+  description?: string;
+  isActive?: boolean;
+  version?: number;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OptionGroupDto = {
+  id: string;
+  groupCode?: string;
+  groupName?: string;
+  groupNameEn?: string;
+  description?: string;
+  isSystem?: boolean;
+  isActive?: boolean;
+  itemCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OptionItemDto = {
+  id: string;
+  groupId?: string;
+  optionCode?: string;
+  optionValue?: string;
+  optionValueEn?: string;
+  icon?: string;
+  color?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  metadata?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ConfigSnapshotDto = {
+  id: string;
+  version?: string;
+  isPublished?: boolean;
+  publishedBy?: string;
+  publishedAt?: string;
+  createdAt?: string;
+};
+
+export type SystemSettingDto = {
+  id: string;
+  section?: string;
+  settingKey?: string;
+  label?: string;
+  description?: string;
+  valueType?: string;
+  value?: string;
+  defaultValue?: string;
+  isActive?: boolean;
+  isSecret?: boolean;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+function mapSystemSetting(row: Dict): SystemSettingDto {
+  return {
+    id: String(readField<string | number>(row, "id", "Id") ?? ""),
+    section: readField<string>(row, "section", "Section") || "",
+    settingKey: readField<string>(row, "settingKey", "SettingKey") || "",
+    label: readField<string>(row, "label", "Label") || "",
+    description: readField<string>(row, "description", "Description") || "",
+    valueType: readField<string>(row, "valueType", "ValueType") || "string",
+    value: readField<string>(row, "value", "Value") || "",
+    defaultValue: readField<string>(row, "defaultValue", "DefaultValue") || "",
+    isActive: Boolean(readField<unknown>(row, "isActive", "IsActive")),
+    isSecret: Boolean(readField<unknown>(row, "isSecret", "IsSecret")),
+    sortOrder: toNumberOrUndefined(readField(row, "sortOrder", "SortOrder")),
+    createdAt: readField<string>(row, "createdAt", "CreatedAt") || "",
+    updatedAt: readField<string>(row, "updatedAt", "UpdatedAt") || "",
+  };
+}
+
+export async function fetchSystemSettings(params?: {
+  page?: number;
+  pageSize?: number;
+  section?: string;
+  search?: string;
+}): Promise<ApiResult<Paginated<SystemSettingDto>>> {
+  const page = params?.page ?? 1;
+  const pageSize = params?.pageSize ?? 50;
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+
+  if (params?.section?.trim()) query.set("section", params.section.trim());
+  if (params?.search?.trim()) query.set("search", params.search.trim());
+
+  const res = await apiGet<unknown>(`/admin/config/system-settings?${query.toString()}`);
+  const paged = toPagedDicts(res.data, page, pageSize);
+
+  return {
+    ...res,
+    data: {
+      items: paged.items.map(mapSystemSetting).filter((item) => Boolean(item.id)),
+      totalCount: paged.totalCount,
+      page: paged.page,
+      pageSize: paged.pageSize,
+    },
+  } satisfies ApiResult<Paginated<SystemSettingDto>>;
+}
+
+export async function fetchSystemSettingById(id: string): Promise<ApiResult<SystemSettingDto | null>> {
+  const res = await apiGet<unknown>(`/admin/config/system-settings/${encodeURIComponent(id)}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapSystemSetting((res.data ?? {}) as Dict) };
+}
+
+export async function createSystemSetting(body: {
+  section: string;
+  settingKey: string;
+  label: string;
+  description?: string;
+  valueType: string;
+  value: string;
+  defaultValue?: string;
+  isActive: boolean;
+  isSecret: boolean;
+  sortOrder: number;
+}) {
+  const res = await apiPost<unknown>("/admin/config/system-settings", body);
+  if (!res.ok || !res.data) return { ...res, data: null as SystemSettingDto | null };
+  return { ...res, data: mapSystemSetting((res.data ?? {}) as Dict) };
+}
+
+export async function updateSystemSetting(
+  id: string,
+  body: {
+    section: string;
+    settingKey: string;
+    label: string;
+    description?: string;
+    valueType: string;
+    value: string;
+    defaultValue?: string;
+    isActive: boolean;
+    isSecret: boolean;
+    sortOrder: number;
+  },
+) {
+  const res = await apiPut<unknown>(`/admin/config/system-settings/${encodeURIComponent(id)}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null as SystemSettingDto | null };
+  return { ...res, data: mapSystemSetting((res.data ?? {}) as Dict) };
+}
+
+export async function deleteSystemSetting(id: string) {
+  return apiDelete<null>(`/admin/config/system-settings/${encodeURIComponent(id)}`);
+}
+
+function mapStaticText(d: Dict): StaticTextDto {
+  return {
+    id: String(readField<string>(d, "id", "Id") || ""),
+    textKey: readField<string>(d, "textKey", "TextKey"),
+    locale: readField<string>(d, "locale", "Locale"),
+    textValue: readField<string>(d, "textValue", "TextValue"),
+    category: readField<string>(d, "category", "Category"),
+    description: readField<string>(d, "description", "Description"),
+    isActive: readField<boolean>(d, "isActive", "IsActive"),
+    version: readField<number>(d, "version", "Version"),
+    updatedBy: readField<string>(d, "updatedBy", "UpdatedBy"),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+  };
+}
+
+function mapOptionGroup(d: Dict): OptionGroupDto {
+  return {
+    id: String(readField<string>(d, "id", "Id") || ""),
+    groupCode: readField<string>(d, "groupCode", "GroupCode"),
+    groupName: readField<string>(d, "groupName", "GroupName"),
+    groupNameEn: readField<string>(d, "groupNameEn", "GroupNameEn"),
+    description: readField<string>(d, "description", "Description"),
+    isSystem: readField<boolean>(d, "isSystem", "IsSystem"),
+    isActive: readField<boolean>(d, "isActive", "IsActive"),
+    itemCount: readField<number>(d, "itemCount", "ItemCount"),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+  };
+}
+
+function mapOptionItem(d: Dict): OptionItemDto {
+  return {
+    id: String(readField<string>(d, "id", "Id") || ""),
+    groupId: readField<string>(d, "groupId", "GroupId"),
+    optionCode: readField<string>(d, "optionCode", "OptionCode"),
+    optionValue: readField<string>(d, "optionValue", "OptionValue"),
+    optionValueEn: readField<string>(d, "optionValueEn", "OptionValueEn"),
+    icon: readField<string>(d, "icon", "Icon"),
+    color: readField<string>(d, "color", "Color"),
+    sortOrder: readField<number>(d, "sortOrder", "SortOrder"),
+    isActive: readField<boolean>(d, "isActive", "IsActive"),
+    metadata: readField<string>(d, "metadata", "Metadata"),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+    updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+  };
+}
+
+function mapConfigSnapshot(d: Dict): ConfigSnapshotDto {
+  return {
+    id: String(readField<string>(d, "id", "Id") || ""),
+    version: readField<string>(d, "version", "Version"),
+    isPublished: readField<boolean>(d, "isPublished", "IsPublished"),
+    publishedBy: readField<string>(d, "publishedBy", "PublishedBy"),
+    publishedAt: readField<string>(d, "publishedAt", "PublishedAt"),
+    createdAt: readField<string>(d, "createdAt", "CreatedAt"),
+  };
+}
+
+// ── Static Texts ──
+
+export async function fetchStaticTexts(params: {
+  page?: number;
+  pageSize?: number;
+  category?: string;
+  key?: string;
+  locale?: string;
+}): Promise<ApiResult<Paginated<StaticTextDto>>> {
+  const p = params.page ?? 1;
+  const ps = params.pageSize ?? 20;
+  const qs = new URLSearchParams({ page: String(p), pageSize: String(ps) });
+  if (params.category) qs.set("category", params.category);
+  if (params.key) qs.set("key", params.key);
+  if (params.locale) qs.set("locale", params.locale);
+  const res = await apiGet<unknown>(`/admin/static-texts?${qs}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  const paged = toPagedDicts(res.data, p, ps);
+  return { ...res, data: { ...paged, items: paged.items.map((d) => mapStaticText(d as unknown as Dict)) } };
+}
+
+export async function fetchStaticTextById(id: string): Promise<ApiResult<StaticTextDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
     return {
-      id: String(readField<string>(d, "id", "Id") || ""),
-      slug: readField<string>(d, "slug", "Slug"),
-      title: readField<string>(d, "title", "Title"),
-      language: readField<string>(d, "language", "Language"),
-      version: readField<string>(d, "version", "Version"),
-      status: readField<string>(d, "status", "Status"),
-      publishedAt: readField<string>(d, "publishedAt", "PublishedAt"),
-      updatedAt: readField<string>(d, "updatedAt", "UpdatedAt"),
+      ok: false,
+      message: "id is required",
+      data: null,
+      status: 0,
     };
-  });
-  return { ...res, data: items };
+  }
+
+  const res = await apiGet<unknown>(`/admin/static-texts/${encodeURIComponent(safeId)}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapStaticText((res.data ?? {}) as Dict) };
+}
+
+export async function fetchStaticTextCategories(): Promise<ApiResult<string[]>> {
+  const res = await apiGet<unknown>("/admin/static-texts/categories");
+  if (!res.ok || !res.data) return { ...res, data: [] };
+  const rows = Array.isArray(res.data) ? res.data : [];
+  return { ...res, data: rows.map(String) };
+}
+
+export async function createStaticText(body: {
+  textKey: string;
+  locale: string;
+  textValue: string;
+  category?: string;
+  description?: string;
+}): Promise<ApiResult<StaticTextDto>> {
+  const res = await apiPost<unknown>("/admin/static-texts", body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapStaticText((res.data ?? {}) as Dict) };
+}
+
+export async function updateStaticText(id: string, body: {
+  textValue?: string;
+  category?: string;
+  description?: string;
+  isActive?: boolean;
+}): Promise<ApiResult<StaticTextDto>> {
+  const res = await apiPut<unknown>(`/admin/static-texts/${id}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapStaticText((res.data ?? {}) as Dict) };
+}
+
+export async function deleteStaticText(id: string): Promise<ApiResult<unknown>> {
+  return apiDelete<unknown>(`/admin/static-texts/${id}`);
+}
+
+// ── Option Groups ──
+
+export async function fetchOptionGroups(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<ApiResult<Paginated<OptionGroupDto>>> {
+  const p = params?.page ?? 1;
+  const ps = params?.pageSize ?? 50;
+  const res = await apiGet<unknown>(`/admin/option-groups?page=${p}&pageSize=${ps}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  const paged = toPagedDicts(res.data, p, ps);
+  return { ...res, data: { ...paged, items: paged.items.map((d) => mapOptionGroup(d as unknown as Dict)) } };
+}
+
+export async function fetchOptionGroupById(id: string): Promise<ApiResult<OptionGroupDto | null>> {
+  const safeId = id.trim();
+  if (!safeId) {
+    return {
+      ok: false,
+      message: "id is required",
+      data: null,
+      status: 0,
+    };
+  }
+
+  const res = await apiGet<unknown>(`/admin/option-groups/${encodeURIComponent(safeId)}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapOptionGroup((res.data ?? {}) as Dict) };
+}
+
+export async function createOptionGroup(body: {
+  groupCode: string;
+  groupName: string;
+  groupNameEn?: string;
+  description?: string;
+}): Promise<ApiResult<OptionGroupDto>> {
+  const res = await apiPost<unknown>("/admin/option-groups", body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapOptionGroup((res.data ?? {}) as Dict) };
+}
+
+export async function updateOptionGroup(id: string, body: {
+  groupName?: string;
+  groupNameEn?: string;
+  description?: string;
+}): Promise<ApiResult<OptionGroupDto>> {
+  const res = await apiPut<unknown>(`/admin/option-groups/${id}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapOptionGroup((res.data ?? {}) as Dict) };
+}
+
+export async function deleteOptionGroup(id: string): Promise<ApiResult<unknown>> {
+  return apiDelete<unknown>(`/admin/option-groups/${id}`);
+}
+
+export async function toggleOptionGroup(id: string): Promise<ApiResult<OptionGroupDto>> {
+  const res = await apiPost<unknown>(`/admin/option-groups/${id}/toggle`, {});
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapOptionGroup((res.data ?? {}) as Dict) };
+}
+
+// ── Option Items ──
+
+export async function fetchOptionItems(groupId: string): Promise<ApiResult<OptionItemDto[]>> {
+  const res = await apiGet<unknown>(`/admin/option-groups/${groupId}/items`);
+  if (!res.ok || !res.data) return { ...res, data: [] };
+  const rows = Array.isArray(res.data) ? res.data : [];
+  return { ...res, data: rows.map((x) => mapOptionItem((x ?? {}) as Dict)) };
+}
+
+export async function createOptionItem(groupId: string, body: {
+  optionCode: string;
+  optionValue: string;
+  optionValueEn?: string;
+  icon?: string;
+  color?: string;
+}): Promise<ApiResult<OptionItemDto>> {
+  const res = await apiPost<unknown>(`/admin/option-groups/${groupId}/items`, body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapOptionItem((res.data ?? {}) as Dict) };
+}
+
+export async function updateOptionItem(groupId: string, itemId: string, body: {
+  optionValue?: string;
+  optionValueEn?: string;
+  icon?: string;
+  color?: string;
+}): Promise<ApiResult<OptionItemDto>> {
+  const res = await apiPut<unknown>(`/admin/option-groups/${groupId}/items/${itemId}`, body);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapOptionItem((res.data ?? {}) as Dict) };
+}
+
+export async function deleteOptionItem(groupId: string, itemId: string): Promise<ApiResult<unknown>> {
+  return apiDelete<unknown>(`/admin/option-groups/${groupId}/items/${itemId}`);
+}
+
+export async function reorderOptionItems(groupId: string, itemIds: string[]): Promise<ApiResult<unknown>> {
+  return apiPost<unknown>(`/admin/option-groups/${groupId}/items/reorder`, { itemIds });
+}
+
+// ── Config Snapshots ──
+
+export async function fetchConfigSnapshots(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<ApiResult<Paginated<ConfigSnapshotDto>>> {
+  const p = params?.page ?? 1;
+  const ps = params?.pageSize ?? 20;
+  const res = await apiGet<unknown>(`/admin/config/snapshots?page=${p}&pageSize=${ps}`);
+  if (!res.ok || !res.data) return { ...res, data: null };
+  const paged = toPagedDicts(res.data, p, ps);
+  return { ...res, data: { ...paged, items: paged.items.map((d) => mapConfigSnapshot(d as unknown as Dict)) } };
+}
+
+export async function publishConfig(): Promise<ApiResult<ConfigSnapshotDto>> {
+  const res = await apiPost<unknown>("/admin/config/publish", {});
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapConfigSnapshot((res.data ?? {}) as Dict) };
+}
+
+export async function rollbackConfig(snapshotId: string): Promise<ApiResult<ConfigSnapshotDto>> {
+  const res = await apiPost<unknown>(`/admin/config/rollback/${snapshotId}`, {});
+  if (!res.ok || !res.data) return { ...res, data: null };
+  return { ...res, data: mapConfigSnapshot((res.data ?? {}) as Dict) };
 }

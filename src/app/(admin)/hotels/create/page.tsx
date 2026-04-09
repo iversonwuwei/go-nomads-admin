@@ -1,4 +1,5 @@
 "use client";
+import { createHotel, fetchCities } from "@/app/lib/admin-api";
 import {
 	ArrowLeftIcon,
 	BuildingOfficeIcon,
@@ -8,8 +9,7 @@ import {
 	StarIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import { useCallback, useState } from "react";
-import { createHotel, fetchCities } from "@/app/lib/admin-api";
+import { useCallback, useEffect, useState } from "react";
 
 const CATEGORY_OPTIONS = [
 	{ label: "选择分类", value: "" },
@@ -29,6 +29,7 @@ const SOURCE_OPTIONS = [
 export default function CreateHotelPage() {
 	const [loading, setLoading] = useState(false);
 	const [saved, setSaved] = useState(false);
+	const [savedHotelId, setSavedHotelId] = useState<string | null>(null);
 	const [error, setError] = useState("");
 
 	const [name, setName] = useState("");
@@ -74,10 +75,9 @@ export default function CreateHotelPage() {
 		}
 	}, []);
 
-	// Load cities on mount
-	useState(() => {
-		loadCities();
-	});
+	useEffect(() => {
+		void loadCities();
+	}, [loadCities]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -118,6 +118,11 @@ export default function CreateHotelPage() {
 		setLoading(false);
 
 		if (res.ok) {
+			setSavedHotelId(
+				res.data && typeof res.data === "object" && "id" in res.data
+					? String(res.data.id ?? "") || null
+					: null,
+			);
 			setSaved(true);
 		} else {
 			setError(res.message || "创建失败");
@@ -136,10 +141,11 @@ export default function CreateHotelPage() {
 					<Link href="/hotels" className="btn btn-ghost btn-sm">
 						返回列表
 					</Link>
-					{/* @ts-expect-error data is not fully typed */}
-					<Link href={`/hotels/${res.data?.id}/edit`} className="btn btn-primary btn-sm">
-						编辑酒店
-					</Link>
+					{savedHotelId ? (
+						<Link href={`/hotels/${savedHotelId}/edit`} className="btn btn-primary btn-sm">
+							编辑酒店
+						</Link>
+					) : null}
 				</div>
 			</div>
 		);
@@ -185,8 +191,9 @@ export default function CreateHotelPage() {
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div className="md:col-span-2">
-								<label className="label label-text text-sm">酒店名称 *</label>
+								<label htmlFor="hotel-name" className="label label-text text-sm">酒店名称 *</label>
 								<input
+									id="hotel-name"
 									type="text"
 									value={name}
 									onChange={(e) => setName(e.target.value)}
@@ -197,8 +204,9 @@ export default function CreateHotelPage() {
 							</div>
 
 							<div className="md:col-span-2">
-								<label className="label label-text text-sm">地址</label>
+								<label htmlFor="hotel-address" className="label label-text text-sm">地址</label>
 								<input
+									id="hotel-address"
 									type="text"
 									value={address}
 									onChange={(e) => setAddress(e.target.value)}
@@ -208,8 +216,9 @@ export default function CreateHotelPage() {
 							</div>
 
 							<div>
-								<label className="label label-text text-sm">城市</label>
+								<label htmlFor="hotel-city" className="label label-text text-sm">城市</label>
 								<select
+									id="hotel-city"
 									value={cityId}
 									onChange={(e) => setCityId(e.target.value)}
 									className="select select-bordered select-sm w-full"
@@ -222,8 +231,9 @@ export default function CreateHotelPage() {
 							</div>
 
 							<div>
-								<label className="label label-text text-sm">分类</label>
+								<label htmlFor="hotel-category" className="label label-text text-sm">分类</label>
 								<select
+									id="hotel-category"
 									value={category}
 									onChange={(e) => setCategory(e.target.value)}
 									className="select select-bordered select-sm w-full"
@@ -235,8 +245,9 @@ export default function CreateHotelPage() {
 							</div>
 
 							<div>
-								<label className="label label-text text-sm">来源</label>
+								<label htmlFor="hotel-source" className="label label-text text-sm">来源</label>
 								<select
+									id="hotel-source"
 									value={source}
 									onChange={(e) => setSource(e.target.value)}
 									className="select select-bordered select-sm w-full"
@@ -248,9 +259,10 @@ export default function CreateHotelPage() {
 							</div>
 
 							<div>
-								<label className="label label-text text-sm">每晚价格</label>
+								<label htmlFor="hotel-price" className="label label-text text-sm">每晚价格</label>
 								<div className="flex gap-2">
 									<input
+										id="hotel-price"
 										type="number"
 										value={pricePerNight}
 										onChange={(e) => setPricePerNight(e.target.value)}
@@ -263,8 +275,9 @@ export default function CreateHotelPage() {
 							</div>
 
 							<div className="md:col-span-2">
-								<label className="label label-text text-sm">简介</label>
+								<label htmlFor="hotel-description" className="label label-text text-sm">简介</label>
 								<textarea
+									id="hotel-description"
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 									placeholder="酒店简介"
@@ -284,8 +297,9 @@ export default function CreateHotelPage() {
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div>
-								<label className="label label-text text-sm">电话</label>
+								<label htmlFor="hotel-phone" className="label label-text text-sm">电话</label>
 								<input
+									id="hotel-phone"
 									type="tel"
 									value={phone}
 									onChange={(e) => setPhone(e.target.value)}
@@ -294,8 +308,9 @@ export default function CreateHotelPage() {
 								/>
 							</div>
 							<div>
-								<label className="label label-text text-sm">邮箱</label>
+								<label htmlFor="hotel-email" className="label label-text text-sm">邮箱</label>
 								<input
+									id="hotel-email"
 									type="email"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
@@ -304,8 +319,9 @@ export default function CreateHotelPage() {
 								/>
 							</div>
 							<div className="md:col-span-2">
-								<label className="label label-text text-sm">官网</label>
+								<label htmlFor="hotel-website" className="label label-text text-sm">官网</label>
 								<input
+									id="hotel-website"
 									type="url"
 									value={website}
 									onChange={(e) => setWebsite(e.target.value)}

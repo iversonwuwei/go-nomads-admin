@@ -1,17 +1,18 @@
 "use client";
 
-import { type AuthUser, fetchCurrentAdmin, logoutAdmin } from "@/app/lib/auth-client";
 import {
   Bars3Icon,
+  ChartBarSquareIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { type NavItem, navItems } from "./nav-config";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type AuthUser, fetchCurrentAdmin, logoutAdmin } from "@/app/lib/auth-client";
+import { navGroupMeta, navGroupOrder, type NavItem, navItems } from "./nav-config";
 
 type AdminShellProps = {
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 export default function AdminShell({ children }: AdminShellProps) {
@@ -44,19 +45,43 @@ export default function AdminShell({ children }: AdminShellProps) {
     return role === "superadmin" ? "Super Admin" : "Admin";
   }, [currentAdmin?.role]);
 
+  const groupedNavItems = useMemo(() => {
+    const grouped = navItems.reduce<Record<string, NavItem[]>>((acc, item) => {
+      const group = item.group;
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(item);
+      return acc;
+    }, {});
+
+    return navGroupOrder
+      .map((group) => ({
+        group,
+        meta: navGroupMeta[group],
+        items: grouped[group] ?? [],
+      }))
+      .filter((entry) => entry.items.length > 0);
+  }, []);
+
+  const currentItem = useMemo(
+    () => navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) ?? navItems[0],
+    [pathname],
+  );
+
+  const currentGroupMeta = currentItem ? navGroupMeta[currentItem.group] : null;
+
   async function handleLogout() {
     await logoutAdmin();
     router.replace("/login");
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="admin-shell-root min-h-screen">
       <div className="drawer lg:drawer-open">
         <input id="admin-drawer" type="checkbox" className="drawer-toggle" />
 
         <div className="drawer-content flex flex-col">
-          <header className="sticky top-0 z-20 border-b border-base-300/60 bg-base-100/85 backdrop-blur">
-            <div className="flex h-16 items-center gap-3 px-4 md:px-6">
+          <header className="admin-topbar sticky top-0 z-20 border-b border-base-300/60 backdrop-blur-xl">
+            <div className="flex min-h-18 items-center gap-3 px-4 py-3 md:px-6">
               <label
                 htmlFor="admin-drawer"
                 className="btn btn-ghost btn-square lg:hidden"
@@ -69,23 +94,28 @@ export default function AdminShell({ children }: AdminShellProps) {
                 <p className="text-xs uppercase tracking-[0.18em] text-base-content/50">
                   Go Nomads Admin
                 </p>
-                <p className="text-sm font-semibold">数据中心 + 中台 + 管理系统</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <ChartBarSquareIcon className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-sm font-semibold">{currentItem?.title || "Control Plane For App Operations"}</p>
+                </div>
+                <p className="mt-1 text-xs text-base-content/55">
+                  围绕 App 供给、治理、增长与风险动作组织当前操作域。
+                </p>
               </div>
-
-              <div className="hidden items-center gap-2 rounded-xl border border-base-300/70 bg-base-100 px-3 py-2 md:flex">
+              <div className="hidden items-center gap-2 rounded-2xl border border-base-300/70 bg-base-100/90 px-3 py-2 md:flex">
                 <MagnifyingGlassIcon className="h-4 w-4 text-base-content/50" />
                 <input
-                  className="w-48 bg-transparent text-sm outline-none"
-                  placeholder="搜索页面/用户/城市..."
+                  className="w-52 bg-transparent text-sm outline-none"
+                  placeholder="搜索任务 / 用户 / 城市 / 内容..."
                   aria-label="Global search"
                 />
               </div>
 
-              <button type="button" className="btn btn-primary btn-sm">
-                + 新建任务
-              </button>
+              <Link href="/app-control" className="btn btn-primary btn-sm rounded-xl">
+                进入 App 控制台
+              </Link>
 
-              <div className="hidden items-center gap-2 rounded-xl border border-base-300/70 bg-base-100 px-2 py-1 lg:flex">
+              <div className="hidden items-center gap-2 rounded-2xl border border-base-300/70 bg-base-100/92 px-2 py-1 lg:flex">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold text-primary">
                   {adminInitial}
                 </div>
@@ -103,32 +133,52 @@ export default function AdminShell({ children }: AdminShellProps) {
             </div>
           </header>
 
-          <main className="p-4 md:p-6">{children}</main>
+          <main className="p-4 md:p-6 lg:p-8">{children}</main>
         </div>
 
-        <aside className="drawer-side border-r border-base-300/70 bg-base-100/90">
+        <aside className="drawer-side border-r border-base-300/70 bg-base-100/88 backdrop-blur-xl">
           <label htmlFor="admin-drawer" aria-label="Close navigation" className="drawer-overlay" />
-          <div className="min-h-full w-72 p-4">
-            <Link href="/dashboard" className="block rounded-xl border border-base-300/70 bg-base-100 p-4">
+          <div className="admin-sidebar-shell min-h-full w-80 p-4">
+            <Link href="/dashboard" className="admin-brand-tile block rounded-3xl border border-base-300/70 p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-primary">Operations Hub</p>
               <h2 className="mt-2 text-xl font-bold">行途管理台</h2>
-              <p className="mt-1 text-xs text-base-content/60">Go Nomads Control Plane</p>
+              <p className="mt-1 max-w-44 text-xs leading-5 text-base-content/60">用治理、内容、增长和审核动作控制 App 最终呈现的数据与体验。</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="control-chip">App Surface</span>
+                <span className="control-chip">Risk Review</span>
+              </div>
             </Link>
 
+            <section className="admin-nav-compass mt-4 rounded-3xl p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-base-content/45">Current Workspace</p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-base-content">{currentGroupMeta?.title || "总览与指挥"}</p>
+                  <p className="mt-1 text-xs leading-5 text-base-content/60">{currentGroupMeta?.description || "当前工作域说明"}</p>
+                </div>
+                <div className="admin-nav-focus-row">
+                  <span className="admin-nav-pill">{currentItem?.subtitle || "Current"}</span>
+                  <span className="admin-nav-pill admin-nav-pill-soft">{currentGroupMeta?.focus || "Control"}</span>
+                </div>
+                <div className="grid gap-2">
+                  <Link href="/dashboard" className="btn btn-outline btn-sm justify-start rounded-2xl">返回数据中心</Link>
+                  <Link href="/app-control" className="btn btn-primary btn-sm justify-start rounded-2xl">进入 App 控制台</Link>
+                </div>
+              </div>
+            </section>
+
             <nav className="mt-4 space-y-4">
-              {Object.entries(
-                navItems.reduce<Record<string, NavItem[]>>((acc, item) => {
-                  const group = item.group;
-                  if (!acc[group]) acc[group] = [];
-                  acc[group].push(item);
-                  return acc;
-                }, {}),
-              ).map(([group, items]) => (
-                <div key={group}>
-                  <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-base-content/40">
-                    {group}
-                  </p>
-                  <div className="space-y-0.5">
+              {groupedNavItems.map(({ group, meta, items }) => (
+                <section key={group} className="admin-nav-group-card rounded-3xl p-3">
+                  <div className="admin-nav-group-header px-2 pb-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">{meta.subtitle}</p>
+                      <p className="mt-1 text-sm font-semibold text-base-content">{meta.title}</p>
+                    </div>
+                    <span className="admin-nav-group-count">{items.length}</span>
+                  </div>
+                  <p className="px-2 text-xs leading-5 text-base-content/55">{meta.description}</p>
+                  <div className="mt-3 space-y-1.5">
                     {items.map((item) => {
                       const Icon = item.icon;
                       const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -136,23 +186,28 @@ export default function AdminShell({ children }: AdminShellProps) {
                         <Link
                           key={item.href}
                           href={item.href}
-                          className={`flex items-center gap-3 rounded-xl px-3 py-2 transition ${active
-                            ? "bg-primary text-primary-content"
-                            : "hover:bg-base-200 text-base-content"
+                          className={`admin-nav-item flex items-center gap-3 rounded-2xl px-3 py-3 transition ${active
+                            ? "admin-nav-item-active"
+                            : "text-base-content hover:bg-base-200/85"
                             }`}
                         >
-                          <Icon className="h-4.5 w-4.5" />
-                          <span>
+                          <div className={`admin-nav-icon ${active ? "admin-nav-icon-active" : ""}`}>
+                            <Icon className="h-4.5 w-4.5" />
+                          </div>
+                          <span className="min-w-0 flex-1">
                             <span className="block text-sm font-semibold leading-4">{item.title}</span>
                             <span className={`block text-[11px] ${active ? "text-primary-content/80" : "text-base-content/50"}`}>
                               {item.subtitle}
                             </span>
                           </span>
+                          {item.badge ? (
+                            <span className={`admin-nav-item-badge ${active ? "admin-nav-item-badge-active" : ""}`}>{item.badge}</span>
+                          ) : null}
                         </Link>
                       );
                     })}
                   </div>
-                </div>
+                </section>
               ))}
             </nav>
           </div>

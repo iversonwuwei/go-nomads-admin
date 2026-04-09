@@ -1,13 +1,5 @@
 import ReportsTableClient from "@/app/components/admin/reports-table-client";
-import {
-    fetchCityById,
-    fetchCoworkingById,
-    fetchInnovationById,
-    fetchMeetupById,
-    fetchMyReports,
-    fetchReportById,
-    fetchUserById,
-} from "@/app/lib/admin-api";
+import { fetchMyReports, fetchReportById } from "@/app/lib/admin-api";
 
 type ReportsPageProps = {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -18,60 +10,76 @@ function asSingle(value: string | string[] | undefined) {
   return value ?? "";
 }
 
+function formatCount(value: number) {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const params = (await searchParams) ?? {};
   const reportId = asSingle(params.reportId).trim();
 
   const listRes = await fetchMyReports();
   const reportRows = listRes.data ?? [];
+  const openCount = reportRows.filter((row) => (row.status || "pending") !== "resolved").length;
+  const pendingCount = reportRows.filter((row) => (row.status || "pending") === "pending").length;
   const detailRes = reportId ? await fetchReportById(reportId) : null;
-  const detail = detailRes?.ok ? detailRes.data : null;
-
-  const reporterRes = detail?.reporterId ? await fetchUserById(detail.reporterId) : null;
-
-  let targetResolved: string | null = null;
-  if (detail?.targetId) {
-    const contentType = (detail.contentType || "").toLowerCase();
-    const targetId = detail.targetId;
-
-    if (contentType === "user") {
-      const userRes = await fetchUserById(targetId);
-      if (userRes.ok && userRes.data) {
-        targetResolved = `${userRes.data.name || "-"} (${userRes.data.email || userRes.data.id})`;
-      }
-    } else if (contentType === "city") {
-      const cityRes = await fetchCityById(targetId);
-      if (cityRes.ok && cityRes.data) {
-        targetResolved = `${cityRes.data.name || cityRes.data.id} / ${cityRes.data.country || "-"}`;
-      }
-    } else if (contentType === "coworking") {
-      const coworkingRes = await fetchCoworkingById(targetId);
-      if (coworkingRes.ok && coworkingRes.data) {
-        targetResolved = `${coworkingRes.data.name || coworkingRes.data.id} / ${coworkingRes.data.cityName || coworkingRes.data.cityId || "-"}`;
-      }
-    } else if (contentType === "meetup" || contentType === "event") {
-      const meetupRes = await fetchMeetupById(targetId);
-      if (meetupRes.ok && meetupRes.data) {
-        targetResolved = `${meetupRes.data.title || meetupRes.data.id} / ${meetupRes.data.organizerName || meetupRes.data.organizerId || "-"}`;
-      }
-    } else if (contentType === "innovationproject" || contentType === "innovation") {
-      const innovationRes = await fetchInnovationById(targetId);
-      if (innovationRes.ok && innovationRes.data) {
-        targetResolved = `${innovationRes.data.title || innovationRes.data.id} / ${innovationRes.data.creatorName || innovationRes.data.creatorId || "-"}`;
-      }
-    }
-  }
 
   return (
-    <section className="space-y-5">
-      <header className="rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-sm">
-        <h1 className="text-2xl font-bold">举报中心 / Report Moderation</h1>
-        <p className="mt-2 text-sm text-base-content/70">
-          处理用户举报，支持分级处置、SLA 跟踪与审计回放。
-        </p>
+    <section className="control-page">
+      <header className="control-hero p-6 md:p-8">
+        <div className="dashboard-hero-grid">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Moderation & Risk</p>
+              <h1 className="text-3xl font-bold">举报中心 / Report Moderation</h1>
+              <p className="max-w-3xl text-sm leading-6 text-base-content/70">这里处理的不是普通列表，而是 App 社区与内容风险。需要把列表、详情、处置时间线明确分开，才能支撑真正的治理闭环。</p>
+            </div>
+            <div className="control-summary-grid">
+              <div className="control-summary-card">
+                <span>Total Reports</span>
+                <strong>{formatCount(reportRows.length)}</strong>
+                <p>当前返回的举报单总数</p>
+              </div>
+              <div className="control-summary-card">
+                <span>Open Reports</span>
+                <strong>{formatCount(openCount)}</strong>
+                <p>仍待闭环的举报数量</p>
+              </div>
+              <div className="control-summary-card">
+                <span>Pending Reports</span>
+                <strong>{formatCount(pendingCount)}</strong>
+                <p>尚未处理的初始待办数量</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="admin-panel rounded-3xl p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">Case Focus</p>
+            <div className="mt-4 space-y-3">
+              <div className="control-mini-stat"><div className="flex items-center justify-between text-sm"><span className="text-base-content/60">详情单号</span><span className="font-semibold">{reportId || "未指定"}</span></div></div>
+              <div className="control-mini-stat"><div className="flex items-center justify-between text-sm"><span className="text-base-content/60">治理目标</span><span className="font-semibold">分配 / 结案 / 驳回</span></div></div>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <form className="grid gap-3 md:grid-cols-4">
+      <section className="control-area">
+        <div className="control-area-header">
+          <p className="control-area-label">Area 01</p>
+          <div className="control-area-title-row">
+            <div>
+              <h2 className="control-area-title">案件查询区</h2>
+              <p className="control-area-muted">这一块只用于按举报单号定位详情案件，不与列表和处置结果混合展示。</p>
+            </div>
+          </div>
+        </div>
+        <div className="control-area-body">
+          <div className="control-focus-bar">
+            <div className="control-focus-item"><span>Focus</span><strong>先锁定案件，再进入处置</strong></div>
+            <div className="control-focus-item"><span>Boundary</span><strong>查询区不展示处置列表</strong></div>
+          </div>
+
+          <form className="mt-5 grid gap-3 md:grid-cols-4">
         <label className="form-control md:col-span-2">
           <span className="label-text text-xs">举报单号 (详情查询)</span>
           <input
@@ -90,6 +98,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           </a>
         </div>
       </form>
+        </div>
+      </section>
 
       {!listRes.ok ? (
         <div className="alert alert-warning">
@@ -104,8 +114,17 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       ) : null}
 
       {detailRes?.ok && detailRes.data ? (
-        <article className="rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-sm">
-          <h2 className="text-base font-semibold">举报详情 / Report Detail</h2>
+        <section className="control-area">
+          <div className="control-area-header">
+            <p className="control-area-label">Area 02</p>
+            <div className="control-area-title-row">
+              <div>
+                <h2 className="control-area-title">举报详情区</h2>
+                <p className="control-area-muted">这里展示当前选中案件的上下文、对象解析结果和举报人信息，供管理员做判断。</p>
+              </div>
+            </div>
+          </div>
+          <div className="control-area-body">
           <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
             <p>
               <span className="text-base-content/60">ID:</span>{" "}
@@ -121,24 +140,31 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             </p>
             <p>
               <span className="text-base-content/60">对象:</span>{" "}
-              {targetResolved || detailRes.data.targetName || "-"}
+                {detailRes.data.targetDisplayName || detailRes.data.targetName || "-"}
             </p>
-            <p>
-              <span className="text-base-content/60">对象 ID:</span>{" "}
-              <span className="font-mono">{detailRes.data.targetId || "-"}</span>
-            </p>
+              {detailRes.data.targetSummary ? (
+                <p>
+                  <span className="text-base-content/60">对象摘要:</span>{" "}
+                  {detailRes.data.targetSummary}
+                </p>
+              ) : null}
             <p>
               <span className="text-base-content/60">原因:</span>{" "}
               {detailRes.data.reasonLabel || detailRes.data.reasonId || "-"}
             </p>
             <p>
               <span className="text-base-content/60">举报人:</span>{" "}
-              {reporterRes?.ok && reporterRes.data
-                ? `${reporterRes.data.name || "-"} (${reporterRes.data.email || reporterRes.data.id})`
-                : detailRes.data.reporterName || detailRes.data.reporterId || "-"}
+                {detailRes.data.reporterDisplayName || detailRes.data.reporterName || "-"}
             </p>
+              {detailRes.data.reporterSummary ? (
+                <p>
+                  <span className="text-base-content/60">举报人摘要:</span>{" "}
+                  {detailRes.data.reporterSummary}
+                </p>
+              ) : null}
           </div>
-        </article>
+          </div>
+        </section>
       ) : null}
 
       <ReportsTableClient initialRows={reportRows} />

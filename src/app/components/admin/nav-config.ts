@@ -6,14 +6,18 @@ import {
     ChartBarSquareIcon,
     ChatBubbleLeftRightIcon,
     ClipboardDocumentListIcon,
+    CloudArrowUpIcon,
     Cog6ToothIcon,
     CreditCardIcon,
+    DevicePhoneMobileIcon,
     DocumentTextIcon,
     ExclamationTriangleIcon,
     GlobeAltIcon,
     HandThumbUpIcon,
     HomeModernIcon,
+    LanguageIcon,
     LightBulbIcon,
+    ListBulletIcon,
     MapIcon,
     MapPinIcon,
     PhotoIcon,
@@ -24,12 +28,63 @@ import {
     UsersIcon
 } from "@heroicons/react/24/outline";
 
+export type NavGroupKey = "概览" | "业务管理" | "用户管理" | "内容审核" | "运营" | "系统";
+
+export type NavGroupMeta = {
+	title: string;
+	subtitle: string;
+	description: string;
+	focus: string;
+};
+
 export type NavItem = {
 	title: string;
 	subtitle: string;
 	href: string;
 	icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-	group: string;
+	group: NavGroupKey;
+	badge?: string;
+};
+
+export const navGroupOrder: NavGroupKey[] = ["概览", "业务管理", "用户管理", "内容审核", "运营", "系统"];
+
+export const navGroupMeta: Record<NavGroupKey, NavGroupMeta> = {
+	概览: {
+		title: "总览与指挥",
+		subtitle: "Overview",
+		description: "适合先判断今天应该从哪个控制面切入。",
+		focus: "先判断工作域，再进入执行页面",
+	},
+	业务管理: {
+		title: "内容供给",
+		subtitle: "Supply",
+		description: "管理进入 App 首页、详情页和发现流的资源供给。",
+		focus: "城市、活动、办公、创新、行程",
+	},
+	用户管理: {
+		title: "用户与商业化",
+		subtitle: "Users",
+		description: "处理用户状态、角色、版主和会员转化配置。",
+		focus: "身份、关系、订阅",
+	},
+	内容审核: {
+		title: "治理与审核",
+		subtitle: "Moderation",
+		description: "聚焦举报、评论、图片和社区风险控制。",
+		focus: "风险判断与处置闭环",
+	},
+	运营: {
+		title: "触达与互动",
+		subtitle: "Operations",
+		description: "处理通知、聊天和 AI 互动等增长相关动作。",
+		focus: "召回、对话、活跃",
+	},
+	系统: {
+		title: "策略与治理",
+		subtitle: "System",
+		description: "系统权限、法律文档和平台级策略配置。",
+		focus: "规则、权限、合规",
+	},
 };
 
 export const navItems: NavItem[] = [
@@ -40,12 +95,42 @@ export const navItems: NavItem[] = [
 		href: "/dashboard",
 		icon: ChartBarSquareIcon,
 		group: "概览",
+		badge: "Core",
 	},
 	{
 		title: "数据分析",
 		subtitle: "Analytics",
 		href: "/analytics",
 		icon: ChartBarIcon,
+		group: "概览",
+	},
+	{
+		title: "App 控制台",
+		subtitle: "App Control",
+		href: "/app-control",
+		icon: DevicePhoneMobileIcon,
+		group: "概览",
+		badge: "Key",
+	},
+	{
+		title: "静态文本",
+		subtitle: "Static Texts",
+		href: "/app-control/static-texts",
+		icon: LanguageIcon,
+		group: "概览",
+	},
+	{
+		title: "选项管理",
+		subtitle: "Options",
+		href: "/app-control/option-groups",
+		icon: ListBulletIcon,
+		group: "概览",
+	},
+	{
+		title: "配置发布",
+		subtitle: "Config Publish",
+		href: "/app-control/config-publish",
+		icon: CloudArrowUpIcon,
 		group: "概览",
 	},
 	// ── 业务管理 ──
@@ -148,6 +233,7 @@ export const navItems: NavItem[] = [
 		href: "/moderation/reports",
 		icon: ExclamationTriangleIcon,
 		group: "内容审核",
+		badge: "Risk",
 	},
 	{
 		title: "图片审核",
@@ -170,6 +256,7 @@ export const navItems: NavItem[] = [
 		href: "/notifications",
 		icon: BellIcon,
 		group: "运营",
+		badge: "Reach",
 	},
 	{
 		title: "聊天记录",
@@ -184,6 +271,7 @@ export const navItems: NavItem[] = [
 		href: "/ai-chat",
 		icon: SparklesIcon,
 		group: "运营",
+		badge: "AI",
 	},
 	// ── 系统 ──
 	{
