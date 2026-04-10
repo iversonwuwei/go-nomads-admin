@@ -184,6 +184,7 @@ export default function OptionGroupsPage() {
 		// reload items for this group
 		const res = await fetchOptionItems(itemGroupId);
 		if (res.ok && res.data) setItemsMap((prev) => ({ ...prev, [itemGroupId]: res.data ?? [] }));
+		await loadGroups();
 	}
 
 	async function handleDeleteItem(groupId: string, itemId: string) {
@@ -191,6 +192,7 @@ export default function OptionGroupsPage() {
 		await deleteOptionItem(groupId, itemId);
 		const res = await fetchOptionItems(groupId);
 		if (res.ok && res.data) setItemsMap((prev) => ({ ...prev, [groupId]: res.data ?? [] }));
+		await loadGroups();
 	}
 
 	return (

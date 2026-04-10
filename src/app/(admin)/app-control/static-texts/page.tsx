@@ -22,7 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 const LOCALE_OPTIONS = [
 	{ label: "全部语言", value: "" },
 	{ label: "中文", value: "zh-CN" },
-	{ label: "English", value: "en" },
+	{ label: "English (US)", value: "en-US" },
 ];
 
 type FormData = {
@@ -282,7 +282,7 @@ export default function StaticTextsPage() {
 									onChange={(e) => setForm({ ...form, locale: e.target.value })}
 								>
 									<option value="zh-CN">中文</option>
-									<option value="en">English</option>
+									<option value="en-US">English (US)</option>
 								</select>
 							</label>
 							<label className="form-control w-full">
