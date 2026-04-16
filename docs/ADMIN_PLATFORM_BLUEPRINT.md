@@ -15,6 +15,48 @@
 - Workflow-first: 每个核心流程定义状态机和可追踪操作。
 - Modern UX: 响应式、可搜索、批量操作、可撤销、全局 Command Palette。
 
+## 1.1 2026-04-15 UI/UX Refresh Blueprint
+
+本轮刷新把 Admin 定义为“战略壳层 + 工作区”的双层结构，而不是单层后台页面集合。
+
+目标体验:
+
+1. Strategic Shell
+
+- 左侧为持久化 domain navigation，承担“我当前处于哪个治理域”的空间定位。
+- 顶部为 command/search bar，承担跨页面搜索、跳转与高频动作入口的统一认知。
+- 当前工作域需要有 mission strip 或 workspace status，让运营和审核知道此刻在处理哪类问题。
+
+1. Operational Workspace
+
+- 主内容区按任务链路组织，不按组件种类组织。
+- 首页优先展示 workflow stages、risk signals、active queues，而不是纯数字卡片墙。
+- 列表型页面优先采用 list-detail / triage 模式，减少“点进详情页再返回”的无效切换。
+
+1. Visual Direction
+
+- 壳层采用更深的结构色，形成明显的“控制平面”气质。
+- 数据工作区保持高可读浅色表面，保证表格、图表、表单、详情块的扫描效率。
+- 强调色分工明确：风险/阻断使用 hazard warm tone，数据与系统信号使用冷色 data tone。
+
+1. Shared Primitives
+
+- 所有页面尽量通过共享的 workspace hero、section、table shell、detail grid、entity summary 样式落地。
+- 新视觉不依赖单页定制背景或零散渐变，而应沉淀为全局壳层 token 与共享布局类。
+
+1. Rollout Strategy
+
+- 首批优先改造 `/dashboard` 和全局 shell，使所有页面先获得统一的信息架构与品牌氛围。
+- 第二批扩散到 Notifications、Community、Membership、Travel Plans、App Control 等高频页面。
+- 后续再把 Media / Moderation / IAM 做到统一的 queue-first 工作台模型。
+
+当前 rollout 进度（2026-04-16）:
+
+- `/dashboard` 已作为指挥页重构完成。
+- Notifications、Community、Travel Plans、Membership、App Control 已切到共享 workspace 或 detail 语言。
+- 下一阶段应从“主干页面已统一”转向“剩余高频治理页补齐 + 浏览器验收”，避免继续只做样式层迁移而没有交互验收闭环；`/users`、`/cities`、`/meetups`、`/coworking`、`/innovation` 列表页是这一阶段已经启动并基本收口的对象，分别承接用户详情治理流、城市供给详情链路、活动供给治理链路、空间供给治理链路与创新项目治理链路。
+- 这意味着 shell/dashboard 的映射工作已经从“单点改造”进入“批量一致性”阶段；随着 `/operations` 与 `/moderation/reports` 完成共享 workspace 语义对齐，下一步更值得做的是浏览器验收，而不是继续只扩展同类列表页。
+
 ---
 
 ## 2. 从 go-nomads-app 提炼的业务模块

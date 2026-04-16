@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { type AuthUser, fetchCurrentAdmin, logoutAdmin } from "@/app/lib/auth-client";
-import { navGroupMeta, navGroupOrder, type NavItem, navItems } from "./nav-config";
+import { type NavItem, type NavItem, type NavItem,, navItems } from "./nav-config";
 
 type AdminShellProps = {
   children: ReactNode;
@@ -81,7 +81,7 @@ export default function AdminShell({ children }: AdminShellProps) {
 
         <div className="drawer-content flex flex-col">
           <header className="admin-topbar sticky top-0 z-20 border-b border-base-300/60 backdrop-blur-xl">
-            <div className="flex min-h-18 items-center gap-3 px-4 py-3 md:px-6">
+            <div className="admin-topbar-shell px-4 py-3 md:px-6">
               <label
                 htmlFor="admin-drawer"
                 className="btn btn-ghost btn-square lg:hidden"
@@ -90,25 +90,28 @@ export default function AdminShell({ children }: AdminShellProps) {
                 <Bars3Icon className="h-5 w-5" />
               </label>
 
-              <div className="flex-1">
-                <p className="text-xs uppercase tracking-[0.18em] text-base-content/50">
-                  Go Nomads Admin
-                </p>
+              <div className="admin-topbar-copy">
+                <p className="admin-topbar-eyebrow">Go Nomads Admin Control Plane</p>
                 <div className="mt-1 flex items-center gap-2">
                   <ChartBarSquareIcon className="h-3.5 w-3.5 text-primary" />
-                  <p className="text-sm font-semibold">{currentItem?.title || "Control Plane For App Operations"}</p>
+                  <p className="text-sm font-semibold text-base-content">
+                    {currentItem?.title || "Control Plane For App Operations"}
+                  </p>
                 </div>
-                <p className="mt-1 text-xs text-base-content/55">
-                  围绕 App 供给、治理、增长与风险动作组织当前操作域。
+                <p className="mt-1 text-xs text-base-content/60">
+                  {currentGroupMeta?.focus || "围绕 App 供给、治理、增长与风险动作组织当前操作域。"}
                 </p>
               </div>
-              <div className="hidden items-center gap-2 rounded-2xl border border-base-300/70 bg-base-100/90 px-3 py-2 md:flex">
+
+              <button type="button" className="admin-command-bar hidden md:flex" aria-label="打开全局命令搜索">
                 <MagnifyingGlassIcon className="h-4 w-4 text-base-content/50" />
-                <input
-                  className="w-52 bg-transparent text-sm outline-none"
-                  placeholder="搜索任务 / 用户 / 城市 / 内容..."
-                  aria-label="Global search"
-                />
+                <span className="admin-command-bar-copy">搜索任务 / 用户 / 城市 / 内容 / 操作...</span>
+                <span className="admin-command-shortcut">Cmd K</span>
+              </button>
+
+              <div className="admin-topbar-status hidden xl:flex">
+                <span className="admin-status-pill admin-status-pill-live">System Online</span>
+                <span className="admin-status-pill">{currentGroupMeta?.title || "总览与指挥"}</span>
               </div>
 
               <Link href="/app-control" className="btn btn-primary btn-sm rounded-xl">
@@ -142,10 +145,11 @@ export default function AdminShell({ children }: AdminShellProps) {
             <Link href="/dashboard" className="admin-brand-tile block rounded-3xl border border-base-300/70 p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-primary">Operations Hub</p>
               <h2 className="mt-2 text-xl font-bold">行途管理台</h2>
-              <p className="mt-1 max-w-44 text-xs leading-5 text-base-content/60">用治理、内容、增长和审核动作控制 App 最终呈现的数据与体验。</p>
+              <p className="mt-1 max-w-52 text-xs leading-5 text-base-content/70">把后台重构成围绕供给、治理、增长与风控运转的 control plane，而不是模块清单。</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="control-chip">App Surface</span>
                 <span className="control-chip">Risk Review</span>
+                <span className="control-chip">Growth Ops</span>
               </div>
             </Link>
 
@@ -159,6 +163,16 @@ export default function AdminShell({ children }: AdminShellProps) {
                 <div className="admin-nav-focus-row">
                   <span className="admin-nav-pill">{currentItem?.subtitle || "Current"}</span>
                   <span className="admin-nav-pill admin-nav-pill-soft">{currentGroupMeta?.focus || "Control"}</span>
+                </div>
+                <div className="admin-compass-grid">
+                  <div className="admin-compass-card">
+                    <span>Protocol</span>
+                    <strong>Workflow First</strong>
+                  </div>
+                  <div className="admin-compass-card">
+                    <span>Mode</span>
+                    <strong>Live Ops</strong>
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Link href="/dashboard" className="btn btn-outline btn-sm justify-start rounded-2xl">返回数据中心</Link>
@@ -210,6 +224,25 @@ export default function AdminShell({ children }: AdminShellProps) {
                 </section>
               ))}
             </nav>
+
+            <div className="admin-sidebar-footer mt-4">
+              <div className="admin-operator-card">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/14 text-sm font-bold text-primary">
+                    {adminInitial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-base-content">
+                      {currentAdmin?.name || currentAdmin?.email || "管理员"}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-base-content/55">{adminRole}</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-base-content/60">
+                  当前壳层已按业务域、风险与增长动作组织，适合在多模块间持续切换工作流。
+                </p>
+              </div>
+            </div>
           </div>
         </aside>
       </div>

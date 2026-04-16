@@ -71,14 +71,14 @@ export function KpiCard({
           <Text className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</Text>
           <Metric className="mt-2 truncate text-slate-950">{valueNum.toLocaleString()}</Metric>
         </div>
-        <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
+        <div className="dashboard-kpi-icon rounded-2xl p-2.5 text-primary">
           <Icon icon={IconComponent} size="lg" variant="simple" tooltip={title} />
         </div>
       </Flex>
       <Flex className="mt-5 items-center justify-between gap-3">
         <Text className="truncate text-slate-600">
           <span
-            className={`rounded-full px-2 py-1 text-xs font-medium ${
+            className={`dashboard-kpi-delta rounded-full px-2 py-1 text-xs font-medium ${
               isPositive
                 ? "bg-emerald-100 text-emerald-800"
                 : "bg-red-100 text-red-800"
@@ -119,7 +119,7 @@ export function UsersChart() {
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <Title>User Growth Signal</Title>
-          <Text className="mt-1">用增长趋势帮助运营判断 App 的激活和召回节奏。</Text>
+          <Text className="mt-1">用增长趋势区分拉新和留存，避免把总量误判成健康度。</Text>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="control-chip"><strong>New Users</strong> Acquisition</span>

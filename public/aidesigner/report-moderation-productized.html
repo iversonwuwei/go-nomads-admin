@@ -1,0 +1,389 @@
+<!-- 
+  aesthetic_dna: Control Plane / Trust & Safety Command Center
+  ui_paradigm: Master-Detail Split Workspace (Triage Nav + Deep Investigation Dossier)
+  palette: Slate/Neutral surfaces, Semantic High-Contrast (Red/Danger, Amber/Warning, Blue/Info), JetBrains Mono for data points.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Nomads - Report Moderation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        ops: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .workspace-row {
+            transition: all 0.15s ease;
+        }
+        .workspace-row[data-state="active"] {
+            background-color: #f1f5f9;
+            box-shadow: inset 3px 0 0 0 #0f172a;
+        }
+
+        .bi-label {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body class="bg-ops-50 text-ops-900 h-screen w-screen overflow-hidden flex font-sans">
+
+    <aside class="w-16 bg-ops-900 border-r border-ops-800 flex flex-col items-center py-4 justify-between z-20 shadow-xl">
+        <div class="flex flex-col gap-6 w-full items-center">
+            <button class="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center text-white font-bold tracking-tighter hover:bg-indigo-500 transition-colors">
+                GN
+            </button>
+            <div class="w-8 h-px bg-ops-700"></div>
+            <button class="w-10 h-10 flex items-center justify-center text-ops-400 hover:text-white hover:bg-ops-800 rounded transition-colors" title="Dashboard">
+                <i class="ph ph-squares-four text-xl"></i>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center text-ops-400 hover:text-white hover:bg-ops-800 rounded transition-colors" title="Users">
+                <i class="ph ph-users text-xl"></i>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center text-white bg-ops-800 rounded relative shadow-inner" title="Moderation">
+                <i class="ph-fill ph-shield-warning text-xl"></i>
+                <span class="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border border-ops-800"></span>
+            </button>
+            <button class="w-10 h-10 flex items-center justify-center text-ops-400 hover:text-white hover:bg-ops-800 rounded transition-colors" title="Content">
+                <i class="ph ph-files text-xl"></i>
+            </button>
+        </div>
+        <div class="flex flex-col gap-4 items-center">
+            <button class="w-10 h-10 flex items-center justify-center text-ops-400 hover:text-white hover:bg-ops-800 rounded transition-colors" title="Settings">
+                <i class="ph ph-gear text-xl"></i>
+            </button>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-ops-600 to-ops-400 border border-ops-700 overflow-hidden">
+                <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=64&q=80" alt="Operator Avatar" class="w-full h-full object-cover">
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 h-full relative">
+        <header class="h-16 px-6 bg-white border-b border-ops-200 flex items-center justify-between shrink-0 z-10 relative">
+            <div class="flex items-center gap-4">
+                <button class="text-ops-500 hover:text-ops-900 border border-ops-200 rounded px-2 py-1 text-sm flex items-center gap-1 bg-ops-50 font-medium transition-colors">
+                    <i class="ph ph-arrow-left"></i> Ops Home
+                </button>
+                <div class="h-4 w-px bg-ops-200"></div>
+                <nav class="flex items-center gap-2 text-xs font-mono text-ops-500 uppercase tracking-wider">
+                    <span>Admin</span>
+                    <i class="ph ph-caret-right"></i>
+                    <span>T&S Dept</span>
+                    <i class="ph ph-caret-right"></i>
+                    <span class="text-ops-900 font-semibold">Report Center</span>
+                </nav>
+            </div>
+
+            <div class="flex gap-4">
+                <div class="flex flex-col items-end border-r border-ops-200 pr-4">
+                    <span class="text-[10px] uppercase font-bold text-ops-400 tracking-wider">Total Reports</span>
+                    <span class="font-mono text-lg font-semibold leading-tight text-ops-900">12,408</span>
+                </div>
+                <div class="flex flex-col items-end border-r border-ops-200 pr-4">
+                    <span class="text-[10px] uppercase font-bold text-ops-400 tracking-wider">Pending / 待处理</span>
+                    <span class="font-mono text-lg font-semibold leading-tight text-amber-600">342</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] uppercase font-bold text-rose-500 tracking-wider flex items-center gap-1"><i class="ph-fill ph-warning-circle"></i> Escalated</span>
+                    <span class="font-mono text-lg font-semibold leading-tight text-rose-600">18</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden p-4 gap-4 bg-ops-50">
+            <section class="flex-1 flex flex-col bg-white rounded-xl shadow-[0_2px_4px_rgba(15,23,42,0.04)] border border-ops-200 overflow-hidden">
+                <div class="p-4 border-b border-ops-200 flex flex-col gap-3 bg-ops-50/50">
+                    <div class="flex items-center justify-between">
+                        <div class="bi-label h-6">
+                            <h2 class="text-base font-semibold text-ops-900 tracking-tight">举报队列</h2>
+                            <span class="text-xs font-mono text-ops-500 uppercase">Review Queue</span>
+                        </div>
+                        <span class="text-xs font-mono text-ops-500 bg-white border border-ops-200 px-2 py-0.5 rounded">Showing 1-50 of 342</span>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-ops-400"></i>
+                            <input type="text" placeholder="Search by Report ID, User ID, or Keyword..."
+                                class="w-full pl-9 pr-4 py-1.5 text-sm border border-ops-200 rounded-md focus:outline-none focus:ring-2 focus:ring-ops-900 focus:border-transparent font-mono placeholder:font-sans placeholder:text-ops-400">
+                        </div>
+                        <select class="border border-ops-200 rounded-md text-sm py-1.5 px-3 bg-white focus:outline-none focus:ring-2 focus:ring-ops-900 font-medium">
+                            <option>Status: Pending</option>
+                            <option>Status: In Review</option>
+                            <option>Status: Resolved</option>
+                        </select>
+                        <select class="border border-ops-200 rounded-md text-sm py-1.5 px-3 bg-white focus:outline-none focus:ring-2 focus:ring-ops-900 font-medium w-36">
+                            <option>Risk: All</option>
+                            <option>Risk: High</option>
+                        </select>
+                        <button class="bg-ops-900 hover:bg-ops-800 text-white rounded-md px-4 py-1.5 text-sm font-medium transition-colors">
+                            Query
+                        </button>
+                        <button class="bg-white hover:bg-ops-50 border border-ops-200 text-ops-700 rounded-md p-1.5 transition-colors" title="Reset">
+                            <i class="ph ph-arrow-counter-clockwise text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-auto bg-white">
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead class="sticky top-0 bg-ops-50 border-b border-ops-200 z-10 shadow-sm text-xs font-mono text-ops-500 uppercase tracking-wider">
+                            <tr>
+                                <th class="py-3 px-4 font-semibold w-16">Select</th>
+                                <th class="py-3 px-2 font-semibold">Report ID</th>
+                                <th class="py-3 px-2 font-semibold">Priority</th>
+                                <th class="py-3 px-2 font-semibold">Reason</th>
+                                <th class="py-3 px-2 font-semibold">Target Type</th>
+                                <th class="py-3 px-2 font-semibold">Time Logged</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-ops-100 text-sm">
+                            <tr class="workspace-row cursor-pointer hover:bg-ops-50/80 group">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-ops-300 accent-ops-900"></td>
+                                <td class="py-3 px-2 font-mono text-ops-900 font-medium">#RPT-8191</td>
+                                <td class="py-3 px-2"><span class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Medium</span></td>
+                                <td class="py-3 px-2 text-ops-700">Spam / Scam</td>
+                                <td class="py-3 px-2 text-ops-500"><i class="ph ph-chat-text inline mr-1"></i>Comment</td>
+                                <td class="py-3 px-2 font-mono text-xs text-ops-500">Just now</td>
+                            </tr>
+
+                            <tr class="workspace-row cursor-pointer" data-state="active">
+                                <td class="py-3 px-4"><input type="checkbox" checked class="rounded border-ops-300 accent-ops-900"></td>
+                                <td class="py-3 px-2 font-mono text-ops-900 font-bold">#RPT-8192-A</td>
+                                <td class="py-3 px-2"><span class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> Critical</span></td>
+                                <td class="py-3 px-2 font-medium text-ops-900">Hate Speech / Harassment</td>
+                                <td class="py-3 px-2 text-ops-600 font-medium"><i class="ph ph-image inline mr-1"></i>Post Media</td>
+                                <td class="py-3 px-2 font-mono text-xs text-ops-600">22 mins ago</td>
+                            </tr>
+
+                            <tr class="workspace-row cursor-pointer hover:bg-ops-50/80 group">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-ops-300 accent-ops-900"></td>
+                                <td class="py-3 px-2 font-mono text-ops-900 font-medium">#RPT-8188</td>
+                                <td class="py-3 px-2"><span class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-ops-600 bg-ops-100 border border-ops-200 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-ops-400"></span> Low</span></td>
+                                <td class="py-3 px-2 text-ops-700">Duplicate Content</td>
+                                <td class="py-3 px-2 text-ops-500"><i class="ph ph-images inline mr-1"></i>Album</td>
+                                <td class="py-3 px-2 font-mono text-xs text-ops-500">1 hr ago</td>
+                            </tr>
+
+                            <tr class="workspace-row cursor-pointer hover:bg-ops-50/80 group">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-ops-300 accent-ops-900"></td>
+                                <td class="py-3 px-2 font-mono text-ops-900 font-medium">#RPT-8185</td>
+                                <td class="py-3 px-2"><span class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Medium</span></td>
+                                <td class="py-3 px-2 text-ops-700">Misinformation</td>
+                                <td class="py-3 px-2 text-ops-500"><i class="ph ph-map-pin inline mr-1"></i>Location Pin</td>
+                                <td class="py-3 px-2 font-mono text-xs text-ops-500">3 hrs ago</td>
+                            </tr>
+
+                            <tr class="workspace-row bg-ops-50/50 opacity-75">
+                                <td class="py-3 px-4"><i class="ph-fill ph-lock-key text-ops-400"></i></td>
+                                <td class="py-3 px-2 font-mono text-ops-500 font-medium">#RPT-8180</td>
+                                <td class="py-3 px-2"><span class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Reviewing</span></td>
+                                <td class="py-3 px-2 text-ops-500">Inappropriate Username</td>
+                                <td class="py-3 px-2 text-ops-500"><i class="ph ph-user inline mr-1"></i>Profile</td>
+                                <td class="py-3 px-2 font-mono text-xs text-ops-500">By Admin_Dave</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="w-[500px] flex flex-col bg-white rounded-xl shadow-[0_4px_12px_rgba(15,23,42,0.06)] border-2 border-ops-800 shrink-0 overflow-hidden relative">
+                <div class="absolute top-0 right-0 w-16 h-16 overflow-hidden z-20 pointer-events-none">
+                    <div class="absolute top-0 right-0 transform translate-x-12 -translate-y-4 rotate-45 bg-rose-500 text-white text-[10px] uppercase font-bold py-1 w-32 text-center shadow-sm">
+                        Critical
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-ops-200 flex flex-col gap-1 bg-ops-900 text-white relative">
+                    <div class="bi-label">
+                        <span class="text-[11px] font-mono font-medium text-ops-300 uppercase">Active Case File / 当前案件</span>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <h1 class="text-2xl font-mono font-bold tracking-tight">#RPT-8192-A</h1>
+                        <span class="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-2 py-0.5 rounded text-xs font-mono flex items-center gap-1">
+                            <i class="ph-fill ph-warning"></i> SLA: 14m remaining
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+                    <div class="flex flex-col gap-3">
+                        <div class="bi-label border-b border-ops-200 pb-1">
+                            <h3 class="text-sm font-semibold text-ops-900">举报内容</h3>
+                            <span class="text-[10px] font-mono text-ops-400 uppercase">Target Content Context</span>
+                        </div>
+
+                        <div class="bg-ops-50 border border-ops-200 rounded-md p-3 relative shadow-inner">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center gap-2">
+                                    <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=32&h=32&q=80" alt="Author" class="w-6 h-6 rounded-full">
+                                    <a href="#" class="text-sm font-medium text-indigo-600 hover:underline">@nomad_x</a>
+                                    <span class="text-xs text-ops-400 font-mono">ID: U-9921</span>
+                                </div>
+                                <span class="text-[11px] text-ops-400 font-mono">Posted 2023-10-24 14:22 UTC</span>
+                            </div>
+                            <p class="text-sm text-ops-800 leading-relaxed config-text">
+                                Met some locals at the market. Totally hate the people in this country, they are all <span class="bg-rose-200 text-rose-900 px-1 rounded font-semibold border-b border-rose-400 cursor-help" title="Flagged keyword match">[PROFANITY/SLUR]</span> and should be kicked out of their own places. Don't travel here if you want safety.
+                            </p>
+                            <div class="mt-3 flex gap-2 overflow-x-auto">
+                                <div class="w-16 h-16 rounded bg-ops-200 border border-ops-300 relative group cursor-zoom-in overflow-hidden">
+                                    <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=150&q=80" class="object-cover w-full h-full opacity-80" alt="Evidence 1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[10px] font-mono text-ops-500 uppercase tracking-wide border-b border-ops-200 pb-1">Reporter</span>
+                            <div class="flex items-center gap-2">
+                                <div class="w-5 h-5 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">V</div>
+                                <div>
+                                    <p class="text-xs font-medium text-ops-900">@verified_traveler</p>
+                                    <p class="text-[10px] font-mono text-green-600">Trust Score: 98/100</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[10px] font-mono text-ops-500 uppercase tracking-wide border-b border-ops-200 pb-1">AI Triggers</span>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-xs font-mono">NLP_HATE_78</span>
+                                <span class="px-1.5 py-0.5 bg-ops-100 text-ops-600 border border-ops-200 rounded text-xs font-mono">GEO_MISMATCH</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3 mt-2">
+                        <div class="bi-label border-b border-ops-200 pb-1">
+                            <h3 class="text-sm font-semibold text-ops-900">流转日志</h3>
+                            <span class="text-[10px] font-mono text-ops-400 uppercase">Action Timeline</span>
+                        </div>
+
+                        <div class="pl-2 space-y-4 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-ops-200 before:to-transparent">
+                            <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                <div class="flex items-center justify-center w-6 h-6 rounded-full border border-ops-200 bg-white text-ops-500 absolute -left-[11px] ring-4 ring-white z-10 shrink-0">
+                                    <i class="ph-fill ph-siren text-amber-500 text-xs"></i>
+                                </div>
+                                <div class="w-[calc(100%-2rem)] pl-4">
+                                    <div class="flex flex-col">
+                                        <span class="text-xs font-medium text-ops-900">User Report Submitted</span>
+                                        <time class="font-mono text-[10px] text-ops-400">14:25:01 UTC</time>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                <div class="flex items-center justify-center w-6 h-6 rounded-full border border-ops-200 bg-white text-ops-500 absolute -left-[11px] ring-4 ring-white z-10 shrink-0">
+                                    <i class="ph-fill ph-robot text-indigo-500 text-xs"></i>
+                                </div>
+                                <div class="w-[calc(100%-2rem)] pl-4">
+                                    <div class="flex flex-col">
+                                        <span class="text-xs font-medium text-ops-900">AI Pre-screen: High Urgency</span>
+                                        <span class="text-xs text-ops-500">Auto-routed to Tier 2 Mod</span>
+                                        <time class="font-mono text-[10px] text-ops-400">14:26:12 UTC</time>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                <div class="flex items-center justify-center w-6 h-6 rounded-full border-2 border-indigo-500 bg-indigo-50 text-indigo-700 absolute -left-[11px] ring-4 ring-white z-10 shrink-0 shadow-sm">
+                                    <i class="ph-fill ph-eye text-xs"></i>
+                                </div>
+                                <div class="w-[calc(100%-2rem)] pl-4">
+                                    <div class="flex flex-col">
+                                        <span class="text-xs font-medium text-indigo-700">Audit Locked by You</span>
+                                        <time class="font-mono text-[10px] text-ops-400">14:32:00 UTC</time>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-ops-50 border-t border-ops-200 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] relative z-10">
+                    <div class="bi-label mb-3">
+                        <h3 class="text-sm font-semibold text-rose-700">处置方案</h3>
+                        <span class="text-[10px] font-mono text-ops-500 uppercase">Execution Matrix</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <button class="bg-rose-600 hover:bg-rose-700 text-white shadow-sm border border-rose-700 rounded-md py-2 px-3 flex flex-col items-center justify-center gap-1 transition-all group focus:ring-2 focus:ring-offset-2 focus:ring-rose-500">
+                            <i class="ph-fill ph-trash text-lg group-hover:scale-110 transition-transform"></i>
+                            <span class="text-xs font-medium">Remove Content & Strike</span>
+                        </button>
+
+                        <button class="bg-ops-800 hover:bg-ops-900 text-white shadow-sm border border-ops-900 rounded-md py-2 px-3 flex flex-col items-center justify-center gap-1 transition-all group focus:ring-2 focus:ring-offset-2 focus:ring-ops-800">
+                            <i class="ph-fill ph-user-minus text-lg group-hover:scale-110 transition-transform"></i>
+                            <span class="text-xs font-medium">Ban User (7 Days)</span>
+                        </button>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button class="flex-1 bg-white hover:bg-ops-100 text-ops-700 border border-ops-300 rounded text-xs py-1.5 font-medium transition-colors">
+                            Dismiss / 忽略
+                        </button>
+                        <button class="flex-1 bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 rounded text-xs py-1.5 font-medium transition-colors">
+                            Send Warning / 警告
+                        </button>
+                        <button class="w-10 bg-white hover:bg-ops-100 text-ops-500 border border-ops-300 rounded text-lg flex items-center justify-center transition-colors" title="More Actions">
+                            <i class="ph ph-dots-three"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+</body>
+</html>

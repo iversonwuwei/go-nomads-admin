@@ -1,6 +1,14 @@
-import AdminTable from "@/app/components/admin/admin-table";
-import { fetchMeetups } from "@/app/lib/admin-api";
-import Link from "next/link";
+import Linklnextlinextlink
+import AdminTable AdminWorkspaceToolbar, admintable
+ts / admin
+AdminToolbarSlot,
+  AdminWorkspace,
+  AdminWorkspaceBreadcrumb,
+  AdminWorkspaceHero,
+  AdminWorkspaceSection,
+  AdminWorkspaceToolbar,
+  tsorkspa / systecomponentsorkspa / systemcworkspace
+import { fetchMeetups }tchMeet@/app/lib}admin - apieet@/app/lib}admin - apim "@/app/lib/admin-api";
 
 type MeetupsPageProps = {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -13,6 +21,28 @@ function asSingle(value: string | string[] | undefined) {
 
 function formatCount(value: number) {
   return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function buildMeetupsHref({
+  cityId,
+  category,
+  status,
+  page,
+  pageSize,
+}: {
+  cityId: string;
+  category: string;
+  status: string;
+  page: number;
+  pageSize: number;
+}) {
+  const params = new URLSearchParams();
+  if (cityId) params.set("cityId", cityId);
+  if (category) params.set("category", category);
+  if (status) params.set("status", status);
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+  return `/meetups?${params.toString()}`;
 }
 
 export default async function MeetupsPage({ searchParams }: MeetupsPageProps) {
@@ -29,156 +59,147 @@ export default async function MeetupsPage({ searchParams }: MeetupsPageProps) {
   const totalCount = payload?.totalCount ?? 0;
   const nextPage = (payload?.page ?? page) + 1;
   const prevPage = Math.max(1, (payload?.page ?? page) - 1);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const totalParticipants = rows.reduce((sum, row) => sum + (row.participantCount ?? 0), 0);
   const statusCount = new Set(rows.map((row) => row.status).filter(Boolean)).size;
 
   return (
-    <section className="control-page">
-      <header className="control-hero p-6 md:p-8">
-        <div className="dashboard-hero-grid">
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Event Supply</p>
-              <h1 className="text-3xl font-bold">Meetup 列表</h1>
-              <p className="max-w-3xl text-sm leading-6 text-base-content/70">这个页面管理进入 App 活动流的事件供给。先明确城市、分类和状态，再查看活动明细与参与规模。</p>
-            </div>
-            <div className="control-summary-grid">
-              <div className="control-summary-card">
-                <span>Total Meetups</span>
-                <strong>{formatCount(totalCount)}</strong>
-                <p>当前查询条件下的活动总数</p>
-              </div>
-              <div className="control-summary-card">
-                <span>Participants In Page</span>
-                <strong>{formatCount(totalParticipants)}</strong>
-                <p>当前页活动参与人数汇总</p>
-              </div>
-              <div className="control-summary-card">
-                <span>Status Types</span>
-                <strong>{formatCount(statusCount)}</strong>
-                <p>当前结果页涉及的活动状态数</p>
-              </div>
-            </div>
-          </div>
+    <AdminWorkspace>
+      <AdminWorkspaceBreadcrumb items={[{ label: "数据中心", href: "/dashboard" }, { label: "活动供给" }]} />
+      <AdminWorkspaceHero
+        eyebrow="Event Supply"
+        title="Meetup 列表"
+        description="这个页面管理进入 App 活动流的事件供给。先明确城市、分类和状态，再查看活动明细与参与规模。"
+        actions={
+          <Link href="/app-control" className="btn btn-outline rounded-2xl">
+            返回 App 控制台
+          </Link>
+        }
+        stats={[
+          { label: "Total Meetups", value: formatCount(totalCount), hint: "当前查询条件下的活动总数" },
+          { label: "Participants In Page", value: formatCount(totalParticipants), hint: "当前页活动参与人数汇总" },
+          { label: "Status Types", value: formatCount(statusCount), hint: "当前结果页涉及的活动状态数" },
+        ]}
+      />
 
-          <div className="admin-panel rounded-3xl p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">Current Filter</p>
-            <div className="mt-4 space-y-3">
-              <div className="control-mini-stat"><div className="flex items-center justify-between text-sm"><span className="text-base-content/60">城市</span><span className="font-semibold">{cityId || "全部"}</span></div></div>
-              <div className="control-mini-stat"><div className="flex items-center justify-between text-sm"><span className="text-base-content/60">分类</span><span className="font-semibold">{category || "全部"}</span></div></div>
-              <div className="control-mini-stat"><div className="flex items-center justify-between text-sm"><span className="text-base-content/60">状态</span><span className="font-semibold">{status || "全部"}</span></div></div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <section className="control-area">
-        <div className="control-area-header">
-          <p className="control-area-label">Area 01</p>
-          <div className="control-area-title-row">
-            <div>
-              <h2 className="control-area-title">活动筛选区</h2>
-              <p className="control-area-muted">这一块只负责设定活动查询条件，不展示活动结果列表，避免筛选条件和供给明细混在一起。</p>
-            </div>
-          </div>
-        </div>
-        <div className="control-area-body">
-          <div className="control-focus-bar">
-            <div className="control-focus-item"><span>Focus</span><strong>先锁定活动范围，再查看供给结果</strong></div>
-            <div className="control-focus-item"><span>Boundary</span><strong>此区不显示活动明细</strong></div>
-          </div>
-
-          <form className="control-filter-form mt-5 md:grid-cols-6">
-        <label className="form-control md:col-span-2">
-          <span className="label-text text-xs">城市 ID</span>
-          <input name="cityId" defaultValue={cityId} className="input input-bordered input-sm" placeholder="city id" />
-        </label>
-        <label className="form-control md:col-span-1">
-          <span className="label-text text-xs">分类</span>
-          <input name="category" defaultValue={category} className="input input-bordered input-sm" placeholder="tech" />
-        </label>
-        <label className="form-control md:col-span-1">
-          <span className="label-text text-xs">状态</span>
-          <input name="status" defaultValue={status} className="input input-bordered input-sm" placeholder="upcoming" />
-        </label>
-        <label className="form-control md:col-span-1">
-          <span className="label-text text-xs">每页</span>
-          <select name="pageSize" defaultValue={String(pageSize)} className="select select-bordered select-sm">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-          </select>
-        </label>
-        <div className="flex items-end gap-2 md:col-span-1">
-          <button type="submit" className="btn btn-primary btn-sm">查询</button>
-          <Link href="/meetups" className="btn btn-outline btn-sm">重置</Link>
-        </div>
-      </form>
-        </div>
-      </section>
+      <AdminWorkspaceSection
+        title="活动筛选"
+        description="先锁定城市、分类和状态范围，再进入结果表查看活动供给和详情入口。"
+      >
+        <form>
+          <input type="hidden" name="page" value="1" />
+          <AdminWorkspaceToolbar>
+            <AdminToolbarSlot label="城市 ID" grow>
+              <input
+                name="cityId"
+                defaultValue={cityId}
+                className="input input-bordered input-sm w-full"
+                placeholder="city id"
+              />
+            </AdminToolbarSlot>
+            <AdminToolbarSlot label="分类">
+              <input
+                name="category"
+                defaultValue={category}
+                className="input input-bordered input-sm w-full"
+                placeholder="tech"
+              />
+            </AdminToolbarSlot>
+            <AdminToolbarSlot label="状态">
+              <input
+                name="status"
+                defaultValue={status}
+                className="input input-bordered input-sm w-full"
+                placeholder="upcoming"
+              />
+            </AdminToolbarSlot>
+            <AdminToolbarSlot label="每页数量">
+              <select name="pageSize" defaultValue={String(pageSize)} className="select select-bordered select-sm w-full">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </AdminToolbarSlot>
+            <AdminToolbarSlot label="操作">
+              <div className="flex items-center gap-2">
+                <button type="submit" className="btn btn-primary btn-sm rounded-xl">查询</button>
+                <Link href="/meetups" className="btn btn-outline btn-sm rounded-xl">重置</Link>
+              </div>
+            </AdminToolbarSlot>
+          </AdminWorkspaceToolbar>
+        </form>
+      </AdminWorkspaceSection>
 
       {!listRes.ok ? (
         <div className="alert alert-warning"><span>数据读取失败: {listRes.message}</span></div>
       ) : null}
 
-      <section className="control-area">
-        <div className="control-area-header">
-          <p className="control-area-label">Area 02</p>
-          <div className="control-area-title-row">
-            <div>
-              <h2 className="control-area-title">活动供给结果区</h2>
-              <p className="control-area-muted">这一块专门展示活动清单、组织者、时间和分页动作。用户能明确知道自己在看供给结果，而不是筛选控件。</p>
-            </div>
+      <AdminWorkspaceSection
+        title="活动供给结果"
+        description="统一查看活动标题、城市、分类状态、组织者与时间窗口，并从同页跳转详情继续做取消、下架或参与者治理。"
+      >
+        <AdminTable
+          headers={["活动", "城市", "分类/状态", "组织者", "时间", "操作"]}
+          hasRows={rows.length > 0}
+          colSpan={6}
+          meta={
+            <>
+              <div>
+                <span className="admin-table-meta-label">Current Result Set</span>
+                <span className="admin-table-meta-value">{formatCount(rows.length)}</span>
+              </div>
+              <p className="admin-table-meta-copy">第 {page}/{totalPages} 页，共 {formatCount(totalCount)} 个活动。列表保留供给识别和详情入口，不把编辑、取消、下架动作提前堆进列表壳层。</p>
+            </>
+          }
+        >
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>
+                <div className="admin-entity-copy">
+                  <span className="admin-entity-title">{row.title || "-"}</span>
+                  <span className="admin-entity-subtitle">Meetup ID · {row.id}</span>
+                </div>
+              </td>
+              <td>{row.cityName || row.cityId || "-"}</td>
+              <td>
+                <div className="space-y-1">
+                  <p>{row.category || "-"}</p>
+                  <p className="text-xs text-base-content/60">{row.status || "-"}</p>
+                </div>
+              </td>
+              <td>{row.organizerName || row.organizerId || "-"}</td>
+              <td>
+                <div className="space-y-1 text-xs text-base-content/65">
+                  <p>开始: {row.startTime || "-"}</p>
+                  <p>结束: {row.endTime || "-"}</p>
+                </div>
+              </td>
+              <td>
+                <Link href={`/meetups/${encodeURIComponent(row.id)}`} className="btn btn-ghost btn-xs rounded-xl">查看详情</Link>
+              </td>
+            </tr>
+          ))}
+        </AdminTable>
+
+        <div className="admin-pagination-shell">
+          <p className="admin-pagination-copy">当前第 {page}/{totalPages} 页，已加载 {rows.length} 条。</p>
+          <div className="join">
+            <Link
+              className={`join-item btn btn-sm ${page <= 1 ? "btn-disabled" : ""}`}
+              href={buildMeetupsHref({ cityId, category, status, page: prevPage, pageSize })}
+            >
+              上一页
+            </Link>
+            <button type="button" className="join-item btn btn-sm btn-disabled">第 {page} 页</button>
+            <Link
+              className={`join-item btn btn-sm ${rows.length < pageSize ? "btn-disabled" : ""}`}
+              href={buildMeetupsHref({ cityId, category, status, page: nextPage, pageSize })}
+            >
+              下一页
+            </Link>
           </div>
         </div>
-        <div className="control-area-body">
-          <div className="control-focus-bar">
-            <div className="control-focus-item"><span>Total</span><strong>{formatCount(totalCount)} 个活动</strong></div>
-            <div className="control-focus-item"><span>Page</span><strong>第 {page} 页，当前 {rows.length} 条</strong></div>
-          </div>
-
-      <AdminTable headers={["活动", "城市", "分类/状态", "组织者", "时间", "操作"]} hasRows={rows.length > 0}>
-        {rows.map((row) => (
-          <tr key={row.id}>
-            <td>
-              <p className="font-semibold">{row.title || "-"}</p>
-              <p className="text-xs font-mono text-base-content/60">{row.id}</p>
-            </td>
-            <td>{row.cityName || row.cityId || "-"}</td>
-            <td>
-              <p>{row.category || "-"}</p>
-              <p className="text-xs text-base-content/60">{row.status || "-"}</p>
-            </td>
-            <td>{row.organizerName || row.organizerId || "-"}</td>
-            <td>
-              <p className="text-xs">开始: {row.startTime || "-"}</p>
-              <p className="text-xs">结束: {row.endTime || "-"}</p>
-            </td>
-            <td><Link href={`/meetups/${encodeURIComponent(row.id)}`} className="btn btn-xs">查看详情</Link></td>
-          </tr>
-        ))}
-      </AdminTable>
-
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-base-300/60 bg-base-100 p-3 text-sm">
-        <span>总数: {totalCount}</span>
-        <div className="join">
-          <Link
-            className={`join-item btn btn-sm ${page <= 1 ? "btn-disabled" : ""}`}
-            href={`/meetups?cityId=${encodeURIComponent(cityId)}&category=${encodeURIComponent(category)}&status=${encodeURIComponent(status)}&page=${prevPage}&pageSize=${pageSize}`}
-          >
-            上一页
-          </Link>
-          <button type="button" className="join-item btn btn-sm btn-disabled">第 {page} 页</button>
-          <Link
-            className={`join-item btn btn-sm ${rows.length < pageSize ? "btn-disabled" : ""}`}
-            href={`/meetups?cityId=${encodeURIComponent(cityId)}&category=${encodeURIComponent(category)}&status=${encodeURIComponent(status)}&page=${nextPage}&pageSize=${pageSize}`}
-          >
-            下一页
-          </Link>
-        </div>
-      </div>
-        </div>
-      </section>
-    </section>
+      </AdminWorkspaceSection>
+    </AdminWorkspace>
   );
 }

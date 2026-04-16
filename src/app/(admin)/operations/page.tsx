@@ -1,3 +1,9 @@
+import {
+  AdminWorkspace,
+  AdminWorkspaceBreadcrumb,
+  AdminWorkspaceHero,
+  AdminWorkspaceSection,
+} from "@/app/components/admin/system-workspace";
 import Link from "next/link";
 
 type OperationGroup = {
@@ -90,82 +96,58 @@ const groups: OperationGroup[] = [
 ];
 
 export default function OperationsPage() {
-  return (
-    <section className="control-page">
-      <header className="control-hero p-6 md:p-8">
-        <div className="dashboard-hero-grid">
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Operations Routing</p>
-              <h1 className="text-3xl font-bold">运营模块入口 / Operations Index</h1>
-              <p className="max-w-3xl text-sm leading-6 text-base-content/70">
-                这个页面的目标不是堆所有链接，而是帮运营先分清当前要进入的是总览区、治理区还是内容供给区。
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="control-chip"><strong>{groups.length}</strong> Areas</span>
-              <span className="control-chip"><strong>{groups.reduce((sum, group) => sum + group.entries.length, 0)}</strong> Modules</span>
-            </div>
-          </div>
+  const totalModules = groups.reduce((sum, group) => sum + group.entries.length, 0);
 
-          <div className="admin-panel rounded-3xl p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">Routing Principle</p>
-            <div className="mt-4 space-y-3">
-              <div className="control-mini-stat">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-base-content/60">先看问题类型</span>
-                  <span className="font-semibold">总览 / 治理 / 供给</span>
-                </div>
-              </div>
-              <div className="control-mini-stat">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-base-content/60">避免</span>
-                  <span className="font-semibold">所有入口混成一层</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+  return (
+    <AdminWorkspace>
+      <AdminWorkspaceBreadcrumb items={[{ label: "数据中心", href: "/dashboard" }, { label: "运营入口" }]} />
+      <AdminWorkspaceHero
+        eyebrow="Operations Routing"
+        title="运营模块入口 / Operations Index"
+        description="这个页面的目标不是堆所有链接，而是帮运营先分清当前要进入的是总览区、治理区还是内容供给区。"
+        actions={
+          <Link href="/dashboard" className="btn btn-outline rounded-2xl">
+            返回数据总览
+          </Link>
+        }
+        stats={[
+          { label: "Areas", value: String(groups.length), hint: "当前按问题类型拆分的入口区域" },
+          { label: "Modules", value: String(totalModules), hint: "当前纳入编排的运营模块数" },
+          { label: "Routing Principle", value: "总览 / 治理 / 供给", hint: "先判断问题类型，再进入具体模块" },
+        ]}
+      />
 
       {groups.map((group) => (
-        <section key={group.area} className="control-area">
-          <div className="control-area-header">
-            <p className="control-area-label">{group.area}</p>
-            <div className="control-area-title-row">
-              <div>
-                <h2 className="control-area-title">{group.title}</h2>
-                <p className="control-area-muted">{group.desc}</p>
-              </div>
+        <AdminWorkspaceSection
+          key={group.area}
+          title={group.title}
+          description={group.desc}
+        >
+          <div className="control-focus-bar">
+            <div className="control-focus-item">
+              <span>Focus</span>
+              <strong>{group.focus}</strong>
+            </div>
+            <div className="control-focus-item">
+              <span>Modules</span>
+              <strong>{group.entries.length} 个入口</strong>
             </div>
           </div>
-          <div className="control-area-body">
-            <div className="control-focus-bar">
-              <div className="control-focus-item">
-                <span>Focus</span>
-                <strong>{group.focus}</strong>
-              </div>
-              <div className="control-focus-item">
-                <span>Modules</span>
-                <strong>{group.entries.length} 个入口</strong>
-              </div>
-            </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {group.entries.map((entry) => (
-                <Link
-                  key={entry.href}
-                  href={entry.href}
-                  className="control-stage-card p-5 transition hover:-translate-y-0.5"
-                >
-                  <h3 className="font-semibold">{entry.title}</h3>
-                  <p className="mt-2 text-sm text-base-content/70">{entry.desc}</p>
-                </Link>
-              ))}
-            </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {group.entries.map((entry) => (
+              <Link
+                key={entry.href}
+                href={entry.href}
+                className="control-stage-card p-5 transition hover:-translate-y-0.5"
+              >
+                <h3 className="font-semibold">{entry.title}</h3>
+                <p className="mt-2 text-sm text-base-content/70">{entry.desc}</p>
+              </Link>
+            ))}
           </div>
-        </section>
+        </AdminWorkspaceSection>
       ))}
-    </section>
+    </AdminWorkspace>
   );
 }

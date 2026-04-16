@@ -1,5 +1,12 @@
-import { UserIdentityLink } from "@/app/components/admin/user-identity-link";
-import {
+import Link AdminWnextrlink
+dmin / sys
+AdminWorkspace,
+  AdminWorkspaceBreadcrumb,
+  AdminWorkspaceHero,
+  AdminWorkspaceSection,
+  temworkspacesystemworkspace
+import { UserIdentityLink     fetchUserscomponents/user-identitylink
+}pp / lib{
     fetchAiSessions,
     fetchCities,
     fetchCommunityPosts,
@@ -9,8 +16,7 @@ import {
     fetchNotifications,
     fetchTravelPlans,
     fetchUsers,
-} from "@/app/lib/admin-api";
-import Link from "next/link";
+} pp / libn@/app/libnadmin-api";
 
 type StageCard = {
   eyebrow: string;
@@ -127,44 +133,26 @@ export default async function AppControlPage() {
   ];
 
   return (
-    <section className="control-page">
-      <header className="control-hero p-6 md:p-8">
-        <div className="dashboard-hero-grid">
-          <div className="space-y-5">
-            <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-primary">App Oriented Control Plane</p>
-            <h1 className="text-3xl font-bold">面向 App 的管理控制台</h1>
-            <p className="max-w-3xl text-sm leading-6 text-base-content/70">
-              这个页面不是再列一次后台模块，而是把 Admin 和 App 的依赖关系转成真实的运营流程。
-              管理员在这里应优先思考“哪些数据会进入 App、哪些内容会影响用户体验、哪些动作能带来增长或降低风险”。
-            </p>
-          </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="control-chip"><strong>{formatCount(users?.totalUsers)}</strong> User Base</span>
-              <span className="control-chip"><strong>{formatCount(entities?.cities)}</strong> Cities Ready</span>
-              <span className="control-chip"><strong>{formatCount(notificationsRes.data?.totalCount)}</strong> Reach Actions</span>
-              <span className="control-chip"><strong>{formatCount(communityRes.data?.totalCount)}</strong> Community Signals</span>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/dashboard" className="btn btn-outline rounded-2xl px-5">返回总览</Link>
-              <Link href="/operations" className="btn btn-primary rounded-2xl px-5">查看全部运营入口</Link>
-            </div>
-          </div>
+    <AdminWorkspace>
+      <AdminWorkspaceBreadcrumb
+        items={[
+          { label: "数据中心", href: "/dashboard" },
+          { label: "App Control" },
+        ]}
+      />
 
-          <div className="admin-panel rounded-3xl p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">Today&apos;s Signal Board</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {signalCards.map((signal) => (
-                <div key={signal.label} className="control-mini-stat">
-                  <p className="text-xs uppercase tracking-[0.16em] text-base-content/45">{signal.label}</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{signal.value}</p>
-                  <p className="mt-1 text-xs text-base-content/55">{signal.hint}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminWorkspaceHero
+        eyebrow="App Oriented Control Plane"
+        title="面向 App 的管理控制台"
+        description="这个页面不是再列一次后台模块，而是把 Admin 和 App 的依赖关系转成真实的运营流程。管理员在这里应优先思考哪些数据会进入 App、哪些内容会影响用户体验、哪些动作能带来增长或降低风险。"
+        actions={
+          <>
+            <Link href="/dashboard" className="btn btn-outline rounded-2xl px-5">返回总览</Link>
+            <Link href="/operations" className="btn btn-primary rounded-2xl px-5">查看全部运营入口</Link>
+          </>
+        }
+        stats={signalCards}
+      />
 
       {warnings.length > 0 ? (
         <div className="alert alert-warning">
@@ -172,17 +160,10 @@ export default async function AppControlPage() {
         </div>
       ) : null}
 
-      <section className="control-area">
-        <div className="control-area-header">
-          <p className="control-area-label">Area 01</p>
-          <div className="control-area-title-row">
-            <div>
-              <h2 className="control-area-title">生命周期阶段区</h2>
-              <p className="control-area-muted">这一块只回答一个问题: 当前 App 管理动作被切成哪几段生命周期。它是导航与认知分区，不是具体明细列表。</p>
-            </div>
-          </div>
-        </div>
-        <div className="control-area-body">
+      <AdminWorkspaceSection
+        title="生命周期阶段区"
+        description="这一块只回答一个问题：当前 App 管理动作被切成哪几段生命周期。它是导航与认知分区，不是具体明细列表。"
+      >
           <div className="control-focus-bar">
             <div className="control-focus-item">
               <span>Focus</span>
@@ -225,20 +206,12 @@ export default async function AppControlPage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
+      </AdminWorkspaceSection>
 
-      <section className="control-area">
-        <div className="control-area-header">
-          <p className="control-area-label">Area 02</p>
-          <div className="control-area-title-row">
-            <div>
-              <h2 className="control-area-title">供给与增长执行区</h2>
-              <p className="control-area-muted">这个区域只处理会直接进入 App 的供给数据，以及影响召回和转化的增长动作。和社区治理区保持明确边界。</p>
-            </div>
-          </div>
-        </div>
-        <div className="control-area-body">
+      <AdminWorkspaceSection
+        title="供给与增长执行区"
+        description="这个区域只处理会直接进入 App 的供给数据，以及影响召回和转化的增长动作。和社区治理区保持明确边界。"
+      >
           <div className="control-focus-bar">
             <div className="control-focus-item">
               <span>Left Area</span>
@@ -309,20 +282,12 @@ export default async function AppControlPage() {
               </div>
             </section>
           </div>
-        </div>
-      </section>
+      </AdminWorkspaceSection>
 
-      <section className="control-area">
-        <div className="control-area-header">
-          <p className="control-area-label">Area 03</p>
-          <div className="control-area-title-row">
-            <div>
-              <h2 className="control-area-title">治理与深度行为区</h2>
-              <p className="control-area-muted">将社区安全与 AI / 行程深度行为单独分区，明确告诉用户这不是供给数据，也不是增长活动，而是风险与高价值使用行为的观察区。</p>
-            </div>
-          </div>
-        </div>
-        <div className="control-area-body">
+      <AdminWorkspaceSection
+        title="治理与深度行为区"
+        description="将社区安全与 AI / 行程深度行为单独分区，明确告诉用户这不是供给数据，也不是增长活动，而是风险与高价值使用行为的观察区。"
+      >
           <div className="control-focus-bar">
             <div className="control-focus-item">
               <span>Left Area</span>
@@ -374,8 +339,7 @@ export default async function AppControlPage() {
               </div>
             </section>
           </div>
-        </div>
-      </section>
-    </section>
+      </AdminWorkspaceSection>
+    </AdminWorkspace>
   );
 }

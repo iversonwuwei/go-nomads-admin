@@ -33,6 +33,61 @@
 - `/travel-plans` 已渲染真实计划列表与详情跳转入口。
 - `/community` 已渲染真实社区内容结果。
 
+## Admin UI/UX 重设计实施基线（2026-04-15）
+
+本轮 UI/UX 重设计不再以“后台页面逐页美化”为目标，而是以 Admin 的真实工作流为中心，把管理后台重构为可执行的 control plane。
+
+设计输入来源:
+
+- 本文档的全量页面审计、P0/P1/P2 分期与治理闭环要求。
+- `ADMIN_PLATFORM_BLUEPRINT.md` 中的数据中心 / 数据中台 / 管理系统 IA。
+- `ADMIN_API_MATRIX.md` 中已验证的真实接口能力与 P0 workflow gap。
+
+本轮落地原则:
+
+1. 信息架构优先
+
+- 首页不再只是 KPI 拼盘，而是“任务入口 + 风险信号 + 当前工作域”的指挥页。
+- 左侧导航继续按业务域分组，但视觉上强化为持久工作台，而不是普通站点菜单。
+- 详情、列表、筛选、批量操作统一回到 workflow-first 结构，而不是零散卡片堆叠。
+
+1. 视觉语言统一
+
+- 采用更强的 control-plane 视觉：深色战略壳层、浅色数据工作区、强调色用于风险与关键动作。
+- 颜色语义继续遵循 success / warning / danger / data 的稳定映射，不能为装饰牺牲状态可读性。
+- 背景、边框、阴影、圆角与间距统一收敛到共享 token，不再让页面各自定义一套容器风格。
+
+1. 页面骨架统一
+
+- 列表页默认骨架：Breadcrumb -> Hero -> Toolbar / Filters -> Table / List -> Pagination。
+- 详情页默认骨架：Breadcrumb -> Hero -> Detail Grid -> Related Signals / Actions。
+- Dashboard 默认骨架：Mission Hero -> Workflow Stage Navigation -> KPI / Risk Signals -> Queue / Triage Workspace。
+
+1. 交互模型统一
+
+- 顶部搜索区按 command palette 语义设计，承担“跳页面 / 查用户 / 查城市 / 查内容”的全局入口心智。
+- 高频 workflow 页面优先采用 list-detail 或双栏 triage 结构，减少来回跳转成本。
+- 删除、隐藏、状态变更等高风险动作，视觉上要与普通浏览操作明确区分。
+
+1. 实施范围与节奏
+
+- Phase 1: 共享壳层（sidebar / topbar / workspace 容器）与 `/dashboard` 首页重设计。
+- Phase 2: 共享列表壳层、详情页骨架、分页与实体摘要样式统一。
+- Phase 3: 将通知、社区、会员、旅行计划、App Control 等高频模块逐步迁移到统一工作台模式。
+
+当前推进状态（2026-04-16）:
+
+- Phase 1 已完成：全局 shell 与 `/dashboard` 已切到 control-plane 语义。
+- Phase 2 已完成主干页面：`/notifications`、`/community`、`/travel-plans`、`/membership` 列表/详情，以及 `/app-control` 已进入共享工作台骨架。
+- 下一步重点不再是继续发散新视觉，而是把剩余高频页面补齐到相同的 workspace / detail / table shell 语言，并做浏览器级验收；其中 `/users`、`/cities`、`/meetups`、`/coworking`、`/innovation` 列表页已经进入这条收口路径，用来分别对齐用户详情治理流、城市供给治理流、活动供给治理流、空间供给治理流与创新项目治理流。
+- 对当前这批高频供给治理列表页来说，shared workspace 骨架已基本补齐；`/operations` 与 `/moderation/reports` 这两个核心治理入口也已完成共享 workspace 语义对齐，后续优先级应转向浏览器级验收，而不是继续扩散同类壳层迁移。
+
+本轮实现约束:
+
+- 仅基于现有 Next.js + Tailwind + DaisyUI + Tremor 技术栈落地，不引入新的 UI 框架。
+- 优先复用共享组件与样式层，避免把视觉方案写死在单页里。
+- 不因 UI 重设计改变已验证的 Admin API 契约；若未来需要新增页面级数据聚合，再单独更新 API 文档。
+
 ## Admin 治理基线（2026-04-08 增补）
 
 管理后台不应停留在“看板 + 删除按钮”层级，针对 App 实际展示的数据，默认应具备以下治理能力：

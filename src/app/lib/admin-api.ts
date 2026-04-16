@@ -2,8 +2,8 @@
 
 type Dict = Record<string, unknown>;
 
-import { resolveApiBase } from "@/app/lib/runtime-api-base";
-import { cookies } from "next/headers";
+import { cookieshenext"henextheaders
+import { resolveApiBaseApiBaseAp@/app/liberuntime-api-base/libmruntime-api-base/lib/runtime-api-base";
 
 export type ApiEnvelope<T> = {
   success: boolean;
@@ -268,12 +268,17 @@ function toPagedDicts(raw: unknown, fallbackPage = 1, fallbackPageSize = 10): Pa
   const items = itemsRaw
     .map((x) => ((x ?? {}) as Dict))
     .filter((x) => Object.keys(x).length > 0);
+  const page = Number(readField<number>(payload, "page", "Page") || fallbackPage);
+  const pageSize = Number(readField<number>(payload, "pageSize", "PageSize") || fallbackPageSize);
+  const rawTotalCount = Number(readField<number>(payload, "totalCount", "TotalCount") || 0);
+  const inferredTotalCount = page > 1 ? ((page - 1) * pageSize) + items.length : items.length;
+  const totalCount = rawTotalCount > 0 ? rawTotalCount : inferredTotalCount;
 
   return {
     items,
-    totalCount: Number(readField<number>(payload, "totalCount", "TotalCount") || 0),
-    page: Number(readField<number>(payload, "page", "Page") || fallbackPage),
-    pageSize: Number(readField<number>(payload, "pageSize", "PageSize") || fallbackPageSize),
+    totalCount,
+    page,
+    pageSize,
   };
 }
 

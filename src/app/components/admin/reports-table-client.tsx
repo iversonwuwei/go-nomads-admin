@@ -1,9 +1,10 @@
 "use client";
 
-import ReportRowActions from "@/app/components/admin/report-row-actions";
-import type { ReportDto } from "@/app/lib/admin-api";
-import { type AdminAuditEvent, fetchAuditEvents, writeAuditEvent } from "@/app/lib/admin-audit-client";
-import { useEffect, useMemo, useState } from "react";
+import { MuseEffect, useMemo, useState } emo, ureact
+import ReportRowActionsm "@/app/cococomponentsnentsn/report-roweactions//report-rowaactionsn/report-row-actions";
+import { { {
+  ReportDtoapi
+  import { type AdminAuditEventnAfetchAuditEventsntwriteAuditEventuditEvent@/app/lib / admin - audit - clientiteAuditEventuditEvent@/app/lib/admin-audit-clientiteAuditEvent } from "@/app / lib / admin - audit - client";
 
 type ReportsTableClientProps = {
   initialRows: ReportDto[];
@@ -28,6 +29,51 @@ function getTargetHref(row: ReportDto) {
   if (contentType === "user") return `/users?q=${encodeURIComponent(targetId)}`;
   return "";
 }
+
+  function formatDateTime(value?: string) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat("zh-CN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      hour12: false,
+    }).format(date);
+  }
+
+  function getPriorityMeta(row: ReportDto) {
+    const normalizedReason = `${row.reasonLabel || ""} ${row.reasonId || ""}`.toLowerCase();
+    const normalizedStatus = (row.status || "pending").toLowerCase();
+
+    if (/(暴力|危险|hate|harass|仇恨|欺诈|fraud|scam)/.test(normalizedReason)) {
+      return { label: "高", className: "moderation-chip moderation-chip-danger" };
+    }
+
+    if (normalizedStatus === "assigned" || /(不当|spam|misinfo|虚假)/.test(normalizedReason)) {
+      return { label: "中", className: "moderation-chip moderation-chip-warning" };
+    }
+
+    return { label: "常规", className: "moderation-chip moderation-chip-info" };
+  }
+
+  function getStatusMeta(status?: string) {
+    const normalized = (status || "pending").toLowerCase();
+
+    if (normalized === "resolved") {
+      return { label: "已结案", className: "moderation-chip moderation-chip-success" };
+    }
+
+    if (normalized === "assigned") {
+      return { label: "处理中", className: "moderation-chip moderation-chip-info" };
+    }
+
+    if (normalized === "dismissed") {
+      return { label: "已驳回", className: "moderation-chip moderation-chip-muted" };
+    }
+
+    return { label: "待处理", className: "moderation-chip moderation-chip-warning" };
+  }
 
 export default function ReportsTableClient({ initialRows }: ReportsTableClientProps) {
   const [rows, setRows] = useState<ReportDto[]>(initialRows);
@@ -122,9 +168,9 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+                {rows.map((row) => (
               <tr key={row.id}>
-                <td className="font-mono text-xs">{row.id}</td>
+              <td className="font-mono text-xs">{row.id}</td>
                 <td>{row.contentType || "-"}</td>
                 <td>
                   {getTargetHref(row) ? (
@@ -138,12 +184,10 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
                     <p className="text-xs text-base-content/60">{row.targetSummary}</p>
                   ) : null}
                 </td>
-                <td>{row.reasonLabel || row.reasonId || "-"}</td>
+              <td>{row.reasonLabel || row.reasonId || "-"}</td>
                 <td>
                   <p>{row.reporterDisplayName || row.reporterName || "-"}</p>
-                  {row.reporterSummary ? (
-                    <p className="text-xs text-base-content/60">{row.reporterSummary}</p>
-                  ) : null}
+                {row.reporterSummary ? <p className="text-xs text-base-content/60">{row.reporterSummary}</p> : null}
                 </td>
                 <td>
                   <span className="badge badge-outline badge-sm">{row.status || "pending"}</span>
@@ -155,13 +199,13 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
                       href={`/moderation/reports?reportId=${encodeURIComponent(row.id)}`}
                       className="btn btn-xs"
                     >
-                      详情
+                    详情
                     </a>
-                    <ReportRowActions reportId={row.id} onActionComplete={handleActionComplete} />
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  <ReportRowActions reportId={row.id} onActionComplete={handleActionComplete} />
+                </div>
+              </td>
+            </tr>
+          ))}
 
             {!hasRows ? (
               <tr>
@@ -177,21 +221,21 @@ export default function ReportsTableClient({ initialRows }: ReportsTableClientPr
 
         <article className="admin-panel rounded-3xl p-4">
         <h3 className="text-sm font-semibold">处置时间线 / Action Timeline</h3>
-        <div className="mt-3 space-y-2 text-sm">
-          {auditTrail.length === 0 ? (
-            <p className="text-base-content/60">尚无本地处置记录，执行分配/结案/驳回后将显示。</p>
-          ) : (
-            auditTrail.slice(0, 8).map((entry) => (
+          <div className="space-y-2 text-sm">
+            {auditTrail.length === 0 ? (
+              <p className="text-base-content/60">尚无本地处置记录，执行分配/结案/驳回后将显示。</p>
+            ) : (
+              auditTrail.slice(0, 8).map((entry) => (
               <div key={entry.id} className="rounded-lg border border-base-300/60 bg-base-200/40 p-2">
                 <p className="font-mono text-xs">{entry.entityId}</p>
                 <p>
                   <span className="capitalize">{entry.action}</span> · {entry.note}
                 </p>
                 <p className="text-xs text-base-content/60">{entry.happenedAt}</p>
-              </div>
-            ))
-          )}
-        </div>
+                </div>
+              ))
+            )}
+          </div>
       </article>
       </div>
     </section>
