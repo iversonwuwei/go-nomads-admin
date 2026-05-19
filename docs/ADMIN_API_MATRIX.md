@@ -4,7 +4,7 @@
 
 验证环境:
 
-- Admin: `http://localhost:3002`
+- Admin: `http://localhost:5101`
 - Gateway: `http://localhost:5080/api/v1`
 - 已重建服务: `user-service`, `ai-service`, `message-service`
 

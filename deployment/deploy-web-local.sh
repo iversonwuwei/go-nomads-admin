@@ -98,4 +98,4 @@ cmd=( $COMPOSE_CMD -f "$COMPOSE_FILE" up -d )
 ps_cmd=( $COMPOSE_CMD -f "$COMPOSE_FILE" ps )
 "${ps_cmd[@]}"
 
-echo "✅ go-nomads-admin is running at http://localhost:3002"
+echo "✅ go-nomads-admin is running at http://localhost:5101"

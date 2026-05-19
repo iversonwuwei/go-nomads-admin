@@ -10,9 +10,10 @@ services:
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
+      PORT: "5101"
       API_BASE: http://go-nomads-nginx/api/v1
     ports:
-      - "3002:3002"
+      - "5101:5101"
     command: ["node", "server.js"]
     restart: unless-stopped
     networks:

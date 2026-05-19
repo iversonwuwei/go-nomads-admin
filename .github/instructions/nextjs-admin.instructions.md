@@ -44,5 +44,5 @@ applyTo: "src/**/*.{ts,tsx}"
 - 请求需携带 `admin_access_token` Cookie
 
 ## 部署
-- Docker 端口: 3002
+- Docker 端口: 5101
 - 输出: `standalone` 模式

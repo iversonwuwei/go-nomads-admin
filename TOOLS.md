@@ -3,7 +3,7 @@
 ## 开发环境
 
 - 包管理: Yarn 4.5.1
-- 端口: dev 3002, Docker 3002
+- 端口: dev 5101, Docker 5101
 - Lint/Format: Biome 2.x
 - Node.js: v20+
 
